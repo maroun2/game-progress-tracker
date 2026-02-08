@@ -1,0 +1,45 @@
+# Build artifacts
+node_modules/
+plugin-build/
+*.zip
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+backend/src/__pycache__/
+
+# Environment
+.env
+.venv
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Database
+*.db
+*.db-journal
+
+# Test files
+INSTALL_URL.txt
+
+# Temporary
+.tmp/
+temp/

@@ -1,0 +1,120 @@
+name: Build and Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Create plugin directory structure
+        run: |
+          mkdir -p plugin-build/game-progress-tracker
+          cp -r dist plugin-build/game-progress-tracker/
+          cp -r backend plugin-build/game-progress-tracker/
+          cp main.py plugin-build/game-progress-tracker/
+          cp plugin.json plugin-build/game-progress-tracker/
+          cp package.json plugin-build/game-progress-tracker/
+          cp requirements.txt plugin-build/game-progress-tracker/
+          cp LICENSE plugin-build/game-progress-tracker/
+          cp README.md plugin-build/game-progress-tracker/
+
+      - name: Create version file
+        run: |
+          echo "${{ github.ref_name }}" > plugin-build/game-progress-tracker/VERSION
+
+      - name: Create release zip
+        run: |
+          cd plugin-build
+          zip -r ../game-progress-tracker-${{ github.ref_name }}.zip game-progress-tracker
+          cd ..
+
+      - name: Verify zip contents
+        run: |
+          unzip -l game-progress-tracker-${{ github.ref_name }}.zip
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## Game Progress Tracker ${{ github.ref_name }}
+
+          ### Installation
+
+          **Option 1: Install from URL (Recommended)**
+          1. Enable Developer Mode in Decky Loader settings
+          2. Go to Developer tab → Install Plugin from URL
+          3. Enter this URL:
+          ```
+          https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/game-progress-tracker-${{ github.ref_name }}.zip
+          ```
+          4. Click Install and wait for completion
+
+          **Option 2: Download and Install Manually**
+          1. Download `game-progress-tracker-${{ github.ref_name }}.zip` below
+          2. Extract to `~/homebrew/plugins/` on your Steam Deck
+          3. Install Python dependencies: `pip install --user -r requirements.txt`
+          4. Restart Decky Loader
+
+          ### Features
+          - 🎮 Automatic game tagging (Completed, In Progress, Mastered)
+          - ⏱️ HowLongToBeat integration for completion times
+          - 🎯 Achievement tracking
+          - 📊 Library statistics
+          - ✏️ Manual tag override
+          - ⚙️ Configurable thresholds
+
+          ### First Time Setup
+          1. Open plugin settings from Decky menu
+          2. Click "Sync Entire Library"
+          3. Wait for sync to complete (may take several minutes)
+          4. Navigate to game pages to see tags
+
+          ### Requirements
+          - Steam Deck with Decky Loader installed
+          - Internet connection (for HLTB data)
+
+          ### Support
+          Report issues at: https://github.com/${{ github.repository }}/issues
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: game-progress-tracker-${{ github.ref_name }}.zip
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest.zip (for static URL)
+        uses: softprops/action-gh-release@v1
+        with:
+          files: game-progress-tracker-${{ github.ref_name }}.zip
+          tag_name: latest
+          name: Latest Release
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

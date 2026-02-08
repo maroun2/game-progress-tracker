@@ -1,0 +1,3 @@
+howlongtobeatpy>=1.0.20
+aiosqlite>=0.17.0
+vdf>=3.4

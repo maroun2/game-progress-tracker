@@ -1,0 +1,12 @@
+{
+  "name": "Game Progress Tracker",
+  "author": "Maron",
+  "version": "1.0.0",
+  "api_version": 1,
+  "flags": ["_root"],
+  "publish": {
+    "tags": ["library", "achievements", "statistics", "enhancement"],
+    "description": "Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.",
+    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"
+  }
+}
