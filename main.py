@@ -18,7 +18,7 @@ PLUGIN_DIR = Path(decky.DECKY_PLUGIN_DIR)
 BACKEND_SRC = PLUGIN_DIR / "backend" / "src"
 
 logger = decky.logger
-logger.info("=== Game Progress Tracker v1.0.39 starting ===")
+logger.info("=== Game Progress Tracker v1.0.40 starting ===")
 logger.info(f"Plugin dir: {PLUGIN_DIR}")
 logger.info(f"Backend src: {BACKEND_SRC} exists={BACKEND_SRC.exists()}")
 
@@ -81,6 +81,16 @@ class Plugin:
         self.hltb_service = HLTBService()
 
         logger.info("Plugin initialized successfully")
+
+        # Auto-run sync on startup for testing
+        logger.info("=== AUTO-RUNNING sync_library for testing ===")
+        try:
+            result = await self.sync_library()
+            logger.info(f"Auto-sync result: {result}")
+        except Exception as e:
+            logger.error(f"Auto-sync failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     async def _unload(self):
         """Cleanup on plugin unload"""
