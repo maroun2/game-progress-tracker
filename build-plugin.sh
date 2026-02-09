@@ -55,13 +55,42 @@ echo "Creating plugin directory structure..."
 mkdir -p plugin-build/game-progress-tracker
 
 # Install Python dependencies into py_modules
-echo "Installing Python dependencies..."
+# Use --platform to get Linux-compatible packages (Steam Deck runs Linux)
+# Use --only-binary=:none: to prefer pure Python packages (no compiled extensions)
+# This avoids architecture/Python version mismatches between build machine and Steam Deck
+echo "Installing Python dependencies for Linux..."
 mkdir -p plugin-build/game-progress-tracker/py_modules
 pip3 install --target=plugin-build/game-progress-tracker/py_modules \
-    aiosqlite>=0.17.0 \
-    howlongtobeatpy>=1.0.20 \
-    vdf>=3.4 \
+    --platform manylinux2014_x86_64 \
+    --python-version 310 \
+    --implementation cp \
+    --only-binary=:none: \
+    --no-deps \
+    aiosqlite \
+    vdf \
+    --quiet 2>/dev/null || {
+    # Fallback: install without platform restrictions for pure Python packages
+    echo "  Falling back to standard install for pure Python packages..."
+    pip3 install --target=plugin-build/game-progress-tracker/py_modules \
+        aiosqlite \
+        vdf \
+        --quiet
+}
+
+# Install howlongtobeatpy separately with its dependencies
+# This package has more complex dependencies, install them carefully
+echo "Installing howlongtobeatpy and dependencies..."
+pip3 install --target=plugin-build/game-progress-tracker/py_modules \
+    howlongtobeatpy \
     --quiet
+
+# Remove any compiled .so files that won't work on Steam Deck
+echo "Cleaning incompatible compiled files..."
+find plugin-build/game-progress-tracker/py_modules -name "*.so" -delete 2>/dev/null || true
+find plugin-build/game-progress-tracker/py_modules -name "*.dylib" -delete 2>/dev/null || true
+
+# Remove __pycache__ directories to reduce size
+find plugin-build/game-progress-tracker/py_modules -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 # Copy required files
 echo "Copying plugin files..."

@@ -1,23 +1,14 @@
 """
 Game Progress Tracker - Main Plugin Entry
 Decky Loader plugin for automatic game tagging
+
+Note: Decky Loader automatically adds py_modules/ to sys.path before loading this file.
+Do NOT add manual sys.path manipulation - it can interfere with Decky's loading mechanism.
 """
 
-import sys
-from pathlib import Path
-
-# Add plugin directory and py_modules to path FIRST (before any other imports)
-PLUGIN_DIR = Path(__file__).parent.resolve()
-PY_MODULES_DIR = PLUGIN_DIR / "py_modules"
-
-if str(PY_MODULES_DIR) not in sys.path:
-    sys.path.insert(0, str(PY_MODULES_DIR))
-if str(PLUGIN_DIR) not in sys.path:
-    sys.path.insert(0, str(PLUGIN_DIR))
-
-# Now import everything else
 import os
 import asyncio
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 # Use Decky's built-in logger for proper log integration
@@ -25,6 +16,7 @@ import decky
 logger = decky.logger
 
 # Import backend modules (these need aiosqlite, vdf, howlongtobeatpy from py_modules)
+# Decky automatically adds py_modules/ to sys.path before this file loads
 from backend.src.database import Database
 from backend.src.steam_data import SteamDataService
 from backend.src.hltb_service import HLTBService
