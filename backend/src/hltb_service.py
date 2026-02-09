@@ -6,9 +6,8 @@ Fetches game completion times from HowLongToBeat using standard library only
 import asyncio
 import json
 import ssl
-import re
+import time
 import urllib.request
-import urllib.parse
 import urllib.error
 from typing import Optional, Dict, Any, List
 from difflib import SequenceMatcher
@@ -23,80 +22,69 @@ import decky
 logger = decky.logger
 
 
-class RedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Custom redirect handler that follows redirects for POST requests"""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        """Handle redirect - preserve method and data for 307/308"""
-        # For 307 and 308, we should preserve the method and body
-        if code in (307, 308):
-            # Create new request with same method and data
-            new_req = urllib.request.Request(
-                newurl,
-                data=req.data,
-                headers=dict(req.headers),
-                method=req.get_method()
-            )
-            return new_req
-        # For other redirects, use default behavior
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
 class HLTBService:
     def __init__(self):
         self.min_similarity = 0.7  # Minimum similarity threshold
         self.base_url = "https://howlongtobeat.com"
         self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-        # Create opener with custom redirect handler
-        self.opener = urllib.request.build_opener(
-            RedirectHandler(),
-            urllib.request.HTTPSHandler(context=SSL_CONTEXT)
-        )
+        self.auth_token = None
+        self.token_timestamp = 0
 
     def _calculate_similarity(self, str1: str, str2: str) -> float:
         """Calculate string similarity using SequenceMatcher"""
         return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
-    def _make_request(self, url: str, data: bytes = None, headers: dict = None, method: str = 'GET') -> Optional[bytes]:
-        """Make HTTP request with redirect handling"""
-        if headers is None:
-            headers = {}
-
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-
+    def _get_auth_token_sync(self) -> Optional[str]:
+        """Get auth token from HLTB finder/init endpoint"""
         try:
-            with self.opener.open(req, timeout=15) as response:
-                return response.read()
-        except urllib.error.HTTPError as e:
-            # Log the error details
-            logger.debug(f"HTTP Error {e.code} for {url}: {e.reason}")
-            if e.code in (307, 308):
-                # Manual redirect handling as fallback
-                redirect_url = e.headers.get('Location')
-                if redirect_url:
-                    logger.debug(f"Following redirect to: {redirect_url}")
-                    req = urllib.request.Request(redirect_url, data=data, headers=headers, method=method)
-                    with self.opener.open(req, timeout=15) as response:
-                        return response.read()
-            raise
+            timestamp = int(time.time() * 1000)
+            init_url = f"{self.base_url}/api/finder/init?t={timestamp}"
+
+            headers = {
+                "User-Agent": self.user_agent,
+                "Referer": f"{self.base_url}/",
+                "Origin": self.base_url,
+                "Accept": "application/json",
+            }
+
+            req = urllib.request.Request(init_url, headers=headers)
+
+            with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                token = result.get('token')
+                if token:
+                    logger.debug(f"Got HLTB auth token")
+                    return token
+
         except Exception as e:
-            logger.debug(f"Request error for {url}: {e}")
-            raise
+            logger.error(f"Failed to get HLTB auth token: {e}")
+
+        return None
 
     def _search_sync(self, game_name: str) -> Optional[Dict[str, Any]]:
         """Synchronous HLTB search"""
         try:
-            # Build headers
+            # Get fresh auth token (tokens may expire)
+            current_time = time.time()
+            if not self.auth_token or (current_time - self.token_timestamp) > 300:  # Refresh every 5 min
+                self.auth_token = self._get_auth_token_sync()
+                self.token_timestamp = current_time
+
+            if not self.auth_token:
+                logger.error("Could not get HLTB auth token")
+                return None
+
+            # Build headers - Accept: application/json is important!
             headers = {
                 "Content-Type": "application/json",
-                "Accept": "*/*",
+                "Accept": "application/json",
                 "User-Agent": self.user_agent,
                 "Referer": f"{self.base_url}/",
                 "Origin": self.base_url,
+                "x-auth-token": self.auth_token,
             }
 
-            # HLTB API payload - simplified version
+            # HLTB API payload
             payload = {
                 "searchType": "games",
                 "searchTerms": game_name.split(),
@@ -108,12 +96,13 @@ class HLTBService:
                         "platform": "",
                         "sortCategory": "popular",
                         "rangeCategory": "main",
-                        "rangeTime": {"min": None, "max": None},
-                        "gameplay": {"perspective": "", "flow": "", "genre": ""},
+                        "rangeTime": {"min": 0, "max": 0},
+                        "gameplay": {"perspective": "", "flow": "", "genre": "", "difficulty": ""},
                         "rangeYear": {"min": "", "max": ""},
                         "modifier": ""
                     },
                     "users": {"sortCategory": "postcount"},
+                    "lists": {"sortCategory": "follows"},
                     "filter": "",
                     "sort": 0,
                     "randomizer": 0
@@ -121,33 +110,12 @@ class HLTBService:
             }
 
             data = json.dumps(payload).encode('utf-8')
+            url = f"{self.base_url}/api/finder"
 
-            # Try multiple API endpoints
-            endpoints = [
-                f"{self.base_url}/api/search",      # Original endpoint
-                f"{self.base_url}/api/s/",          # New endpoint
-                f"{self.base_url}/api/search/",     # With trailing slash
-            ]
+            req = urllib.request.Request(url, data=data, headers=headers, method='POST')
 
-            result = None
-            last_error = None
-
-            for endpoint in endpoints:
-                try:
-                    logger.debug(f"Trying HLTB endpoint: {endpoint}")
-                    response_data = self._make_request(endpoint, data=data, headers=headers, method='POST')
-                    result = json.loads(response_data.decode('utf-8'))
-                    logger.debug(f"Success with endpoint: {endpoint}")
-                    break
-                except Exception as e:
-                    last_error = e
-                    logger.debug(f"Endpoint {endpoint} failed: {e}")
-                    continue
-
-            if result is None:
-                if last_error:
-                    raise last_error
-                return None
+            with urllib.request.urlopen(req, timeout=15, context=SSL_CONTEXT) as response:
+                result = json.loads(response.read().decode('utf-8'))
 
             games = result.get("data", [])
             if not games:
