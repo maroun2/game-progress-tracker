@@ -4,6 +4,7 @@ Decky Loader plugin for automatic game tagging
 """
 
 import os
+import sys
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -11,6 +12,11 @@ from typing import Optional, Dict, Any, List
 # Use Decky's built-in logger for proper log integration
 import decky
 logger = decky.logger
+
+# Add plugin directory to path for imports
+PLUGIN_DIR = Path(__file__).parent.resolve()
+if str(PLUGIN_DIR) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_DIR))
 
 # Import backend modules
 from backend.src.database import Database
