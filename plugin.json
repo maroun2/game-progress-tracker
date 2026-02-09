@@ -1,7 +1,7 @@
 {
   "name": "Game Progress Tracker",
   "author": "Maron",
-  "version": "1.0.41",
+  "version": "1.0.42",
   "flags": ["_root"],
   "publish": {
     "tags": ["library", "achievements", "statistics", "enhancement"],

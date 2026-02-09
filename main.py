@@ -18,7 +18,7 @@ PLUGIN_DIR = Path(decky.DECKY_PLUGIN_DIR)
 BACKEND_SRC = PLUGIN_DIR / "backend" / "src"
 
 logger = decky.logger
-logger.info("=== Game Progress Tracker v1.0.41 starting ===")
+logger.info("=== Game Progress Tracker v1.0.42 starting ===")
 logger.info(f"Plugin dir: {PLUGIN_DIR}")
 logger.info(f"Backend src: {BACKEND_SRC} exists={BACKEND_SRC.exists()}")
 
@@ -159,7 +159,7 @@ class Plugin:
                     await self.db.cache_hltb_data(appid, hltb_data)
 
             # Calculate new tag
-            new_tag = await self.calculate_auto_tag(appid)
+            new_tag = await Plugin.calculate_auto_tag(self, appid)
 
             # Update if changed or doesn't exist
             if new_tag:
@@ -216,7 +216,7 @@ class Plugin:
         """Reset manual override to auto-calculated tag"""
         try:
             # Force recalculation
-            result = await self.sync_game_tags(appid, force=True)
+            result = await Plugin.sync_game_tags(self, appid, force=True)
             return {"success": True, "tag": result}
         except Exception as e:
             logger.error(f"Error resetting tag for {appid}: {e}")
@@ -225,7 +225,7 @@ class Plugin:
     async def sync_single_game(self, appid: str) -> Dict[str, Any]:
         """Sync data and tags for single game"""
         try:
-            result = await self.sync_game_tags(appid, force=False)
+            result = await Plugin.sync_game_tags(self, appid, force=False)
             return {"success": True, "result": result}
         except Exception as e:
             logger.error(f"Error syncing game {appid}: {e}")
@@ -263,7 +263,7 @@ class Plugin:
                 logger.info(f"[{i+1}/{total}] Syncing: {game_name} ({appid})")
 
                 try:
-                    await self.sync_game_tags(appid)
+                    await Plugin.sync_game_tags(self, appid)
                     synced += 1
                     logger.info(f"[{i+1}/{total}] Completed: {game_name}")
 
