@@ -22,10 +22,12 @@ sys.path.append(str(DEPS_PATH))
 sys.path.append(str(BACKEND_PATH / "src"))
 
 logger = decky.logger
-logger.info("=== Game Progress Tracker v1.0.28 starting ===")
-logger.info(f"Plugin dir: {decky.DECKY_PLUGIN_DIR}")
-logger.info(f"py_modules path: {PY_MODULES_PATH}")
-logger.info(f"py_modules exists: {PY_MODULES_PATH.exists()}")
+logger.info("=== Game Progress Tracker v1.0.29 starting ===")
+logger.info(f"Plugin dir: {PLUGIN_DIR}")
+logger.info(f"Backend path: {BACKEND_PATH}")
+logger.info(f"Deps path: {DEPS_PATH}")
+logger.info(f"Backend exists: {BACKEND_PATH.exists()}")
+logger.info(f"Deps exists: {DEPS_PATH.exists()}")
 
 # List contents of plugin directory to see what was actually extracted
 plugin_path = Path(decky.DECKY_PLUGIN_DIR)
