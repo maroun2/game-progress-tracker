@@ -6,6 +6,7 @@ Fetches game completion times from HowLongToBeat using standard library only
 import asyncio
 import json
 import ssl
+import re
 import urllib.request
 import urllib.parse
 from typing import Optional, Dict, Any, List
@@ -24,21 +25,85 @@ logger = decky.logger
 class HLTBService:
     def __init__(self):
         self.min_similarity = 0.7  # Minimum similarity threshold
-        self.api_url = "https://howlongtobeat.com/api/search"
-        self.headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://howlongtobeat.com/",
-            "Origin": "https://howlongtobeat.com"
-        }
+        self.base_url = "https://howlongtobeat.com"
+        self.api_url = "https://howlongtobeat.com/api/s/"  # New API endpoint
+        self.auth_token = None
+        self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     def _calculate_similarity(self, str1: str, str2: str) -> float:
         """Calculate string similarity using SequenceMatcher"""
         return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
+    def _get_auth_token_sync(self) -> Optional[str]:
+        """Get auth token from HLTB init endpoint"""
+        try:
+            init_url = f"{self.api_url}init"
+            headers = {
+                "User-Agent": self.user_agent,
+                "Accept": "*/*",
+                "Referer": f"{self.base_url}/",
+            }
+
+            req = urllib.request.Request(init_url, headers=headers, method='GET')
+
+            with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                token = result.get("token") or result.get("auth_token")
+                if token:
+                    logger.debug(f"Got HLTB auth token")
+                    return token
+
+        except Exception as e:
+            logger.debug(f"Failed to get auth token from init: {e}")
+
+        # Fallback: try to extract from main page script
+        try:
+            headers = {
+                "User-Agent": self.user_agent,
+                "Accept": "text/html",
+            }
+            req = urllib.request.Request(self.base_url, headers=headers, method='GET')
+
+            with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
+                html = response.read().decode('utf-8')
+
+                # Look for api key patterns in script tags
+                patterns = [
+                    r'api_key["\']?\s*[:=]\s*["\']([^"\']+)["\']',
+                    r'authToken["\']?\s*[:=]\s*["\']([^"\']+)["\']',
+                    r'x-auth-token["\']?\s*[:=]\s*["\']([^"\']+)["\']',
+                ]
+
+                for pattern in patterns:
+                    match = re.search(pattern, html, re.IGNORECASE)
+                    if match:
+                        logger.debug(f"Found auth token via pattern")
+                        return match.group(1)
+
+        except Exception as e:
+            logger.debug(f"Failed to extract auth token from HTML: {e}")
+
+        return None
+
     def _search_sync(self, game_name: str) -> Optional[Dict[str, Any]]:
         """Synchronous HLTB search"""
         try:
+            # Get auth token if we don't have one
+            if not self.auth_token:
+                self.auth_token = self._get_auth_token_sync()
+
+            # Build headers
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "*/*",
+                "User-Agent": self.user_agent,
+                "Referer": f"{self.base_url}/",
+                "Origin": self.base_url,
+            }
+
+            if self.auth_token:
+                headers["x-auth-token"] = self.auth_token
+
             # HLTB API payload
             payload = {
                 "searchType": "games",
@@ -51,29 +116,41 @@ class HLTBService:
                         "platform": "",
                         "sortCategory": "popular",
                         "rangeCategory": "main",
-                        "rangeTime": {"min": None, "max": None},
-                        "gameplay": {"perspective": "", "flow": "", "genre": ""},
-                        "rangeYear": {"min": "", "max": ""},
                         "modifier": ""
-                    },
-                    "users": {"sortCategory": "postcount"},
-                    "filter": "",
-                    "sort": 0,
-                    "randomizer": 0
-                }
+                    }
+                },
+                "useCache": True
             }
 
             data = json.dumps(payload).encode('utf-8')
 
+            # Try new API endpoint first
+            search_url = self.api_url
             req = urllib.request.Request(
-                self.api_url,
+                search_url,
                 data=data,
-                headers=self.headers,
+                headers=headers,
                 method='POST'
             )
 
-            with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
-                result = json.loads(response.read().decode('utf-8'))
+            try:
+                with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    # Try old endpoint as fallback
+                    logger.debug("New API returned 404, trying old endpoint")
+                    old_url = f"{self.base_url}/api/search"
+                    req = urllib.request.Request(
+                        old_url,
+                        data=data,
+                        headers=headers,
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
+                        result = json.loads(response.read().decode('utf-8'))
+                else:
+                    raise
 
             games = result.get("data", [])
             if not games:

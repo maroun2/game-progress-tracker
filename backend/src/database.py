@@ -22,7 +22,9 @@ class Database:
 
     def _connect_sync(self):
         """Synchronous connection for use with to_thread"""
-        conn = sqlite3.connect(self.db_path)
+        # check_same_thread=False allows connection to be used across threads
+        # This is safe because we serialize access through asyncio.to_thread
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn
 

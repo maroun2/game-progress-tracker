@@ -1,0 +1,217 @@
+026-02-09 17:15:42,540][INFO]: === Game Progress Tracker v1.0.43 starting ===
+[2026-02-09 17:15:42,540][INFO]: Plugin dir: /home/deck/homebrew/plugins/game-progress-tracker
+[2026-02-09 17:15:42,542][INFO]: Backend src: /home/deck/homebrew/plugins/game-progress-tracker/backend/src exists=True
+[2026-02-09 17:15:42,542][INFO]: Added to sys.path: /home/deck/homebrew/plugins/game-progress-tracker/backend/src
+[2026-02-09 17:15:42,542][INFO]: backend/src/ contains 4 items:
+[2026-02-09 17:15:42,543][INFO]:   - database.py
+[2026-02-09 17:15:42,543][INFO]:   - steam_data.py
+[2026-02-09 17:15:42,543][INFO]:   - hltb_service.py
+[2026-02-09 17:15:42,543][INFO]:   - __init__.py
+[2026-02-09 17:15:42,543][INFO]: sys.path: ['/home/deck/homebrew/plugins/game-progress-tracker/backend/src', '/tmp/_MEIOdIqwy/base_library.zip', '/tmp/_MEIOdIqwy/lib-dynload', '/tmp/_MEIOdIqwy', '/tmp/_MEIOdIqwy/setuptools/_vendor']...
+[2026-02-09 17:15:42,568][INFO]: Backend modules imported successfully
+[2026-02-09 17:15:42,568][INFO]: Game Progress Tracker plugin starting...
+[2026-02-09 17:15:42,570][INFO]: Connected to database: /home/deck/homebrew/data/game-progress-tracker/game_tracker.db
+[2026-02-09 17:15:42,572][INFO]: Database schema initialized
+[2026-02-09 17:15:42,572][INFO]: Found Steam path: /home/deck/.steam/steam
+[2026-02-09 17:15:42,572][INFO]: Plugin initialized successfully
+[2026-02-09 17:15:42,572][INFO]: === AUTO-RUNNING sync_library for testing ===
+[2026-02-09 17:15:42,572][INFO]: === sync_library called ===
+[2026-02-09 17:15:42,572][INFO]: Fetching games from Steam...
+[2026-02-09 17:15:42,574][INFO]: Using Steam user ID: 99048608
+[2026-02-09 17:15:42,579][ERROR]: Failed to parse /home/deck/.steam/steam/steamapps/appmanifest_990080.acf: 'str' object has no attribute 'get'
+[2026-02-09 17:15:42,582][ERROR]: Failed to parse /home/deck/.steam/steam/steamapps/appmanifest_35700.acf: 'str' object has no attribute 'get'
+[2026-02-09 17:15:42,588][ERROR]: Failed to parse /home/deck/.local/share/Steam/steamapps/appmanifest_990080.acf: 'str' object has no attribute 'get'
+[2026-02-09 17:15:42,591][ERROR]: Failed to parse /home/deck/.local/share/Steam/steamapps/appmanifest_35700.acf: 'str' object has no attribute 'get'
+[2026-02-09 17:15:42,592][INFO]: Found 74 games in library
+[2026-02-09 17:15:42,592][INFO]: Found 74 games in Steam library
+[2026-02-09 17:15:42,592][INFO]: [1/74] Syncing: Vampire Survivors (1794680)
+[2026-02-09 17:15:43,402][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:43,404][INFO]: [1/74] Completed: Vampire Survivors
+[2026-02-09 17:15:44,405][INFO]: [2/74] Syncing: Castle Crashers (204360)
+[2026-02-09 17:15:45,095][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:45,097][INFO]: [2/74] Completed: Castle Crashers
+[2026-02-09 17:15:46,098][INFO]: [3/74] Syncing: No Man's Sky (275850)
+[2026-02-09 17:15:46,780][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:46,782][INFO]: [3/74] Completed: No Man's Sky
+[2026-02-09 17:15:47,784][INFO]: [4/74] Syncing: Another World (233550)
+[2026-02-09 17:15:48,478][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:48,481][INFO]: [4/74] Completed: Another World
+[2026-02-09 17:15:49,481][INFO]: [5/74] Syncing: Little Nightmares (424840)
+[2026-02-09 17:15:50,467][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:50,469][INFO]: [5/74] Completed: Little Nightmares
+[2026-02-09 17:15:51,470][INFO]: [6/74] Syncing: GRID (12750)
+[2026-02-09 17:15:52,309][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:52,311][INFO]: [6/74] Completed: GRID
+[2026-02-09 17:15:53,311][INFO]: [7/74] Syncing: Worms Reloaded (22600)
+[2026-02-09 17:15:54,154][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:54,155][INFO]: [7/74] Completed: Worms Reloaded
+[2026-02-09 17:15:55,156][INFO]: [8/74] Syncing: Half-Life 2: Lost Coast (340)
+[2026-02-09 17:15:55,997][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:55,998][INFO]: [8/74] Completed: Half-Life 2: Lost Coast
+[2026-02-09 17:15:57,000][INFO]: [9/74] Syncing: The Walking Dead: The Telltale Definitive Series (1449690)
+[2026-02-09 17:15:57,841][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:57,843][INFO]: [9/74] Completed: The Walking Dead: The Telltale Definitive Series
+[2026-02-09 17:15:58,845][INFO]: [10/74] Syncing: Proton 9.0 (2805730)
+[2026-02-09 17:15:59,531][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:15:59,533][INFO]: [10/74] Completed: Proton 9.0
+[2026-02-09 17:16:00,534][INFO]: [11/74] Syncing: Steamworks Common Redistributables (228980)
+[2026-02-09 17:16:00,912][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:00,914][INFO]: [11/74] Completed: Steamworks Common Redistributables
+[2026-02-09 17:16:01,915][INFO]: [12/74] Syncing: Proton Experimental (1493710)
+[2026-02-09 17:16:03,062][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:03,064][INFO]: [12/74] Completed: Proton Experimental
+[2026-02-09 17:16:04,065][INFO]: [13/74] Syncing: Steam Linux Runtime 3.0 (sniper) (1628350)
+[2026-02-09 17:16:04,907][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:04,908][INFO]: [13/74] Completed: Steam Linux Runtime 3.0 (sniper)
+[2026-02-09 17:16:05,909][INFO]: [14/74] Syncing: Steam Linux Runtime 1.0 (scout) (1070560)
+[2026-02-09 17:16:06,748][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:06,750][INFO]: [14/74] Completed: Steam Linux Runtime 1.0 (scout)
+[2026-02-09 17:16:07,751][INFO]: [15/74] Syncing: Proton 10.0 (3658110)
+[2026-02-09 17:16:08,591][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:08,593][INFO]: [15/74] Completed: Proton 10.0
+[2026-02-09 17:16:09,594][INFO]: [16/74] Syncing: Divinity: Original Sin Enhanced Edition (373420)
+[2026-02-09 17:16:10,435][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:10,437][INFO]: [16/74] Completed: Divinity: Original Sin Enhanced Edition
+[2026-02-09 17:16:11,438][INFO]: [17/74] Syncing: Half-Life 2: Episode One (380)
+[2026-02-09 17:16:12,280][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:12,282][INFO]: [17/74] Completed: Half-Life 2: Episode One
+[2026-02-09 17:16:13,284][INFO]: [18/74] Syncing: Unravel (1225560)
+[2026-02-09 17:16:14,123][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:14,125][INFO]: [18/74] Completed: Unravel
+[2026-02-09 17:16:15,126][INFO]: [19/74] Syncing: Steam Linux Runtime 2.0 (soldier) (1391110)
+[2026-02-09 17:16:15,965][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:15,967][INFO]: [19/74] Completed: Steam Linux Runtime 2.0 (soldier)
+[2026-02-09 17:16:16,968][INFO]: [20/74] Syncing: Unravel Two (1225570)
+[2026-02-09 17:16:17,808][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:17,810][INFO]: [20/74] Completed: Unravel Two
+[2026-02-09 17:16:18,811][INFO]: [21/74] Syncing: Metro 2033 Redux (286690)
+[2026-02-09 17:16:19,345][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:19,347][INFO]: [21/74] Completed: Metro 2033 Redux
+[2026-02-09 17:16:20,348][INFO]: [22/74] Syncing: Half-Life 2 (220)
+[2026-02-09 17:16:20,631][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:20,633][INFO]: [22/74] Completed: Half-Life 2
+[2026-02-09 17:16:21,635][INFO]: [23/74] Syncing: Audiosurf (12900)
+[2026-02-09 17:16:22,110][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:22,111][INFO]: [23/74] Completed: Audiosurf
+[2026-02-09 17:16:23,112][INFO]: [24/74] Syncing: Kingdom Come: Deliverance (379430)
+[2026-02-09 17:16:23,953][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:23,955][INFO]: [24/74] Completed: Kingdom Come: Deliverance
+[2026-02-09 17:16:24,956][INFO]: [25/74] Syncing: Dreadmyst (4241850)
+[2026-02-09 17:16:25,803][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:25,804][INFO]: [25/74] Completed: Dreadmyst
+[2026-02-09 17:16:26,806][INFO]: [26/74] Syncing: Half-Life 2: Episode Two (420)
+[2026-02-09 17:16:27,540][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:27,541][INFO]: [26/74] Completed: Half-Life 2: Episode Two
+[2026-02-09 17:16:28,543][INFO]: [27/74] Syncing: Creaks (956030)
+[2026-02-09 17:16:29,483][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:29,485][INFO]: [27/74] Completed: Creaks
+[2026-02-09 17:16:30,487][INFO]: [28/74] Syncing: Trackmania (2225070)
+[2026-02-09 17:16:31,326][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:31,328][INFO]: [28/74] Completed: Trackmania
+[2026-02-09 17:16:32,329][INFO]: [29/74] Syncing: Realm of the Mad God Exalt (200210)
+[2026-02-09 17:16:33,476][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:33,478][INFO]: [29/74] Completed: Realm of the Mad God Exalt
+[2026-02-09 17:16:34,479][INFO]: [30/74] Syncing: GRID 2 (44350)
+[2026-02-09 17:16:35,320][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:35,322][INFO]: [30/74] Completed: GRID 2
+[2026-02-09 17:16:36,323][INFO]: [31/74] Syncing: Age of Empires II (2013) (221380)
+[2026-02-09 17:16:36,959][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:36,961][INFO]: [31/74] Completed: Age of Empires II (2013)
+[2026-02-09 17:16:37,962][INFO]: [32/74] Syncing: Spirit of the North (1213700)
+[2026-02-09 17:16:38,698][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:38,700][INFO]: [32/74] Completed: Spirit of the North
+[2026-02-09 17:16:39,701][INFO]: [33/74] Syncing: Path of Exile (238960)
+[2026-02-09 17:16:40,542][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:40,544][INFO]: [33/74] Completed: Path of Exile
+[2026-02-09 17:16:41,545][INFO]: [34/74] Syncing: Terraria (105600)
+[2026-02-09 17:16:42,386][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:42,387][INFO]: [34/74] Completed: Terraria
+[2026-02-09 17:16:43,388][INFO]: [35/74] Syncing: Kingdom Rush Frontiers (458710)
+[2026-02-09 17:16:44,228][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:44,230][INFO]: [35/74] Completed: Kingdom Rush Frontiers
+[2026-02-09 17:16:45,230][INFO]: [36/74] Syncing: Botanicula (207690)
+[2026-02-09 17:16:45,787][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:45,789][INFO]: [36/74] Completed: Botanicula
+[2026-02-09 17:16:46,790][INFO]: [37/74] Syncing: Split Fiction (2001120)
+[2026-02-09 17:16:47,299][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:47,301][INFO]: [37/74] Completed: Split Fiction
+[2026-02-09 17:16:48,302][INFO]: [38/74] Syncing: Vampire Survivors (1794680)
+[2026-02-09 17:16:49,144][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:49,146][INFO]: [38/74] Completed: Vampire Survivors
+[2026-02-09 17:16:50,146][INFO]: [39/74] Syncing: Castle Crashers (204360)
+[2026-02-09 17:16:50,986][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:50,987][INFO]: [39/74] Completed: Castle Crashers
+[2026-02-09 17:16:51,988][INFO]: [40/74] Syncing: No Man's Sky (275850)
+[2026-02-09 17:16:51,995][ERROR]: Failed to sync tags for 275850: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:51,995][INFO]: [40/74] Completed: No Man's Sky
+[2026-02-09 17:16:52,996][INFO]: [41/74] Syncing: Another World (233550)
+[2026-02-09 17:16:52,997][ERROR]: Failed to sync tags for 233550: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:52,997][INFO]: [41/74] Completed: Another World
+[2026-02-09 17:16:53,998][INFO]: [42/74] Syncing: Little Nightmares (424840)
+[2026-02-09 17:16:53,999][ERROR]: Failed to update stats for 424840: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:54,673][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:54,674][ERROR]: Failed to sync tags for 424840: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:54,674][INFO]: [42/74] Completed: Little Nightmares
+[2026-02-09 17:16:55,676][INFO]: [43/74] Syncing: GRID (12750)
+[2026-02-09 17:16:55,678][ERROR]: Failed to update stats for 12750: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:56,315][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:56,316][ERROR]: Failed to sync tags for 12750: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:56,317][INFO]: [43/74] Completed: GRID
+[2026-02-09 17:16:57,318][INFO]: [44/74] Syncing: Worms Reloaded (22600)
+[2026-02-09 17:16:57,320][ERROR]: Failed to update stats for 22600: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:58,360][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:16:58,361][ERROR]: Failed to sync tags for 22600: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:16:58,362][INFO]: [44/74] Completed: Worms Reloaded
+[2026-02-09 17:16:59,363][INFO]: [45/74] Syncing: Half-Life 2: Lost Coast (340)
+[2026-02-09 17:16:59,364][ERROR]: Failed to update stats for 340: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:00,203][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:00,204][ERROR]: Failed to sync tags for 340: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:00,204][INFO]: [45/74] Completed: Half-Life 2: Lost Coast
+[2026-02-09 17:17:01,206][INFO]: [46/74] Syncing: The Walking Dead: The Telltale Definitive Series (1449690)
+[2026-02-09 17:17:01,207][ERROR]: Failed to update stats for 1449690: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:02,046][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:02,047][ERROR]: Failed to sync tags for 1449690: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:02,048][INFO]: [46/74] Completed: The Walking Dead: The Telltale Definitive Series
+[2026-02-09 17:17:03,048][INFO]: [47/74] Syncing: Proton 9.0 (2805730)
+[2026-02-09 17:17:03,050][ERROR]: Failed to update stats for 2805730: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:03,890][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:03,891][ERROR]: Failed to sync tags for 2805730: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:03,892][INFO]: [47/74] Completed: Proton 9.0
+[2026-02-09 17:17:04,893][INFO]: [48/74] Syncing: Steamworks Common Redistributables (228980)
+[2026-02-09 17:17:04,896][ERROR]: Failed to update stats for 228980: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:05,524][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:05,525][ERROR]: Failed to sync tags for 228980: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:05,525][INFO]: [48/74] Completed: Steamworks Common Redistributables
+[2026-02-09 17:17:06,527][INFO]: [49/74] Syncing: Proton Experimental (1493710)
+[2026-02-09 17:17:06,529][ERROR]: Failed to update stats for 1493710: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:07,269][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:07,270][ERROR]: Failed to sync tags for 1493710: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:07,270][INFO]: [49/74] Completed: Proton Experimental
+[2026-02-09 17:17:08,271][INFO]: [50/74] Syncing: Steam Linux Runtime 3.0 (sniper) (1628350)
+[2026-02-09 17:17:08,273][ERROR]: Failed to update stats for 1628350: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:10,344][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:10,345][ERROR]: Failed to sync tags for 1628350: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:10,345][INFO]: [50/74] Completed: Steam Linux Runtime 3.0 (sniper)
+[2026-02-09 17:17:11,346][INFO]: [51/74] Syncing: Steam Linux Runtime 1.0 (scout) (1070560)
+[2026-02-09 17:17:11,348][ERROR]: Failed to update stats for 1070560: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:12,492][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:12,493][ERROR]: Failed to sync tags for 1070560: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:12,493][INFO]: [51/74] Completed: Steam Linux Runtime 1.0 (scout)
+[2026-02-09 17:17:13,494][INFO]: [52/74] Syncing: Proton 10.0 (3658110)
+[2026-02-09 17:17:13,495][ERROR]: Failed to update stats for 3658110: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:14,335][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:14,336][ERROR]: Failed to sync tags for 3658110: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:14,336][INFO]: [52/74] Completed: Proton 10.0
+[2026-02-09 17:17:15,338][INFO]: [53/74] Syncing: Divinity: Original Sin Enhanced Edition (373420)
+[2026-02-09 17:17:15,340][ERROR]: Failed to update stats for 373420: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:16,178][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:16,181][ERROR]: Failed to sync tags for 373420: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:16,181][INFO]: [53/74] Completed: Divinity: Original Sin Enhanced Edition
+[2026-02-09 17:17:17,183][INFO]: [54/74] Syncing: Half-Life 2: Episode One (380)
+[2026-02-09 17:17:17,183][ERROR]: Failed to sync tags for 380: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:17,184][INFO]: [54/74] Completed: Half-Life 2: Episode One
+[2026-02-09 17:17:18,185][INFO]: [55/74] Syncing: Unravel (1225560)
+[2026-02-09 17:17:18,187][ERROR]: Failed to update stats for 1225560: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:18,842][ERROR]: HLTB search error: HTTP Error 404: Not Found
+[2026-02-09 17:17:18,843][ERROR]: Failed to sync tags for 1225560: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 140650624304832 and this is thread id 140650632697536.
+[2026-02-09 17:17:18,843][INFO]: [55/74] Completed: Unravel
