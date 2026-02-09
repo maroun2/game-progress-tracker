@@ -13,37 +13,34 @@ from typing import Optional, Dict, Any, List
 # Import decky to get plugin directory path
 import decky
 
-# Add paths BEFORE importing custom modules
-# Decky only extracts 'backend/src/' - so ALL deps go there
+# Setup paths - Decky automatically adds py_modules/ to sys.path
+# but we'll ensure it's there
 PLUGIN_DIR = Path(decky.DECKY_PLUGIN_DIR)
-BACKEND_SRC = PLUGIN_DIR / "backend" / "src"
-sys.path.insert(0, str(BACKEND_SRC))
+PY_MODULES = PLUGIN_DIR / "py_modules"
+
+# Add py_modules to path if not already there (Decky should do this automatically)
+if PY_MODULES.exists() and str(PY_MODULES) not in sys.path:
+    sys.path.insert(0, str(PY_MODULES))
 
 logger = decky.logger
-logger.info("=== Game Progress Tracker v1.0.31 starting ===")
+logger.info("=== Game Progress Tracker v1.0.32 starting ===")
 logger.info(f"Plugin dir: {PLUGIN_DIR}")
-logger.info(f"Backend src: {BACKEND_SRC}")
-logger.info(f"Backend src exists: {BACKEND_SRC.exists()}")
+logger.info(f"py_modules: {PY_MODULES}")
+logger.info(f"py_modules exists: {PY_MODULES.exists()}")
 
 # List contents of plugin directory to see what was actually extracted
-plugin_path = Path(decky.DECKY_PLUGIN_DIR)
-if plugin_path.exists():
-    contents = list(plugin_path.iterdir())
+if PLUGIN_DIR.exists():
+    contents = list(PLUGIN_DIR.iterdir())
     logger.info(f"Plugin directory contents: {[c.name for c in contents]}")
     for item in contents:
         if item.is_dir():
             try:
-                sub_contents = list(item.iterdir())[:10]
+                sub_contents = list(item.iterdir())[:15]
                 logger.info(f"  {item.name}/ contains: {[c.name for c in sub_contents]}")
             except:
                 pass
 
-# List backend/src contents specifically
-if BACKEND_SRC.exists():
-    src_contents = list(BACKEND_SRC.iterdir())
-    logger.info(f"backend/src/ contains {len(src_contents)} items: {[c.name for c in src_contents[:15]]}")
-
-logger.info(f"sys.path: {sys.path}")
+logger.info(f"sys.path: {sys.path[:5]}...")  # First 5 entries
 
 # Now import backend modules
 try:
@@ -53,6 +50,8 @@ try:
     logger.info("Backend modules imported successfully")
 except ImportError as e:
     logger.error(f"Import failed: {e}")
+    import traceback
+    logger.error(traceback.format_exc())
     # Create dummy classes so plugin can at least load
     class Database:
         def __init__(self, *args): pass
