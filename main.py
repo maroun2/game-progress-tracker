@@ -18,7 +18,7 @@ PLUGIN_DIR = Path(decky.DECKY_PLUGIN_DIR)
 BACKEND_SRC = PLUGIN_DIR / "backend" / "src"
 
 logger = decky.logger
-logger.info("=== Game Progress Tracker v1.0.50 starting ===")
+logger.info("=== Game Progress Tracker v1.0.51 starting ===")
 logger.info(f"Plugin dir: {PLUGIN_DIR}")
 logger.info(f"Backend src: {BACKEND_SRC} exists={BACKEND_SRC.exists()}")
 
@@ -396,17 +396,32 @@ class Plugin:
 
     async def get_all_games(self) -> Dict[str, Any]:
         """Get list of all games for frontend to fetch playtime"""
+        logger.info("=== get_all_games called (frontend requesting game list) ===")
         try:
             games = await self.steam_service.get_all_games()
+            logger.info(f"get_all_games: returning {len(games)} games to frontend")
             return {"success": True, "games": games}
         except Exception as e:
-            logger.error(f"Failed to get all games: {e}")
+            logger.error(f"get_all_games failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
     async def sync_library_with_playtime(self, playtime_data: Dict[str, int]) -> Dict[str, Any]:
         """Sync library using playtime data provided by frontend"""
+        logger.info("=== sync_library_with_playtime called ===")
+        logger.info(f"Received playtime_data type: {type(playtime_data)}")
+        logger.info(f"Received playtime_data keys count: {len(playtime_data) if isinstance(playtime_data, dict) else 'NOT A DICT'}")
+
+        # Log sample of playtime data
+        if isinstance(playtime_data, dict):
+            sample = list(playtime_data.items())[:5]
+            logger.info(f"Sample playtime data (first 5): {sample}")
+            non_zero = sum(1 for v in playtime_data.values() if v > 0)
+            logger.info(f"Games with playtime > 0: {non_zero}/{len(playtime_data)}")
+
         try:
-            logger.info(f"=== sync_library_with_playtime called with {len(playtime_data)} playtime entries ===")
+            logger.info(f"=== Starting sync with {len(playtime_data)} playtime entries ===")
 
             games = await self.steam_service.get_all_games()
             total = len(games)
@@ -455,6 +470,8 @@ class Plugin:
 
     async def sync_game_with_playtime(self, appid: str, playtime_minutes: int) -> Dict[str, Any]:
         """Sync a single game using frontend-provided playtime"""
+        logger.debug(f"sync_game_with_playtime: appid={appid}, playtime_minutes={playtime_minutes}")
+
         # Get current tag
         current_tag = await self.db.get_tag(appid)
 
