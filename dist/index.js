@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.0.51","flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.0.52","flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -314,22 +314,33 @@ const styles$1 = {
  */
 
 /**
+ * Log to both console and backend (for debugging without CEF)
+ */
+const logToBackend = async (level, message) => {
+    console.log(`[GameProgressTracker] ${message}`);
+    try {
+        await call('log_frontend', { level, message });
+    }
+    catch (e) {
+        // Silently fail if backend logging fails
+    }
+};
+/**
  * Get playtime data for a list of appids from Steam's frontend API
  * Uses window.appStore which is Steam's internal game data cache
  */
-const getPlaytimeData = (appids) => {
-    console.log(`[GameProgressTracker] getPlaytimeData called with ${appids.length} appids`);
+const getPlaytimeData = async (appids) => {
+    await logToBackend('info', `getPlaytimeData called with ${appids.length} appids`);
     const playtimeMap = {};
     // Access Steam's global appStore (typed by @decky/ui)
     const appStore = window.appStore;
-    console.log(`[GameProgressTracker] appStore available: ${!!appStore}`);
-    console.log(`[GameProgressTracker] appStore type: ${typeof appStore}`);
+    await logToBackend('info', `appStore available: ${!!appStore}, type: ${typeof appStore}`);
     if (!appStore) {
-        console.error('[GameProgressTracker] appStore not available - cannot get playtime!');
+        await logToBackend('error', 'appStore not available - cannot get playtime!');
         return playtimeMap;
     }
     // Check if GetAppOverviewByAppID method exists
-    console.log(`[GameProgressTracker] GetAppOverviewByAppID exists: ${typeof appStore.GetAppOverviewByAppID}`);
+    await logToBackend('info', `GetAppOverviewByAppID exists: ${typeof appStore.GetAppOverviewByAppID}`);
     let successCount = 0;
     let failCount = 0;
     let withPlaytime = 0;
@@ -344,22 +355,22 @@ const getPlaytimeData = (appids) => {
                     withPlaytime++;
                 // Log first few for debugging
                 if (successCount <= 3) {
-                    console.log(`[GameProgressTracker] Sample - appid ${appid}: playtime=${playtime}min, name=${overview.display_name || 'unknown'}`);
+                    await logToBackend('info', `Sample - appid ${appid}: playtime=${playtime}min, name=${overview.display_name || 'unknown'}`);
                 }
             }
             else {
                 failCount++;
                 if (failCount <= 3) {
-                    console.log(`[GameProgressTracker] No overview for appid ${appid}`);
+                    await logToBackend('info', `No overview for appid ${appid}`);
                 }
             }
         }
         catch (e) {
             failCount++;
-            console.error(`[GameProgressTracker] Failed to get playtime for ${appid}:`, e);
+            await logToBackend('error', `Failed to get playtime for ${appid}: ${e}`);
         }
     }
-    console.log(`[GameProgressTracker] getPlaytimeData results: success=${successCount}, failed=${failCount}, withPlaytime=${withPlaytime}`);
+    await logToBackend('info', `getPlaytimeData results: success=${successCount}, failed=${failCount}, withPlaytime=${withPlaytime}`);
     return playtimeMap;
 };
 // Tag color mapping
@@ -456,39 +467,39 @@ const Settings = () => {
         }
     };
     const syncLibrary = async () => {
-        console.log('[GameProgressTracker] ========================================');
-        console.log('[GameProgressTracker] syncLibrary button clicked - v1.0.51');
-        console.log('[GameProgressTracker] ========================================');
+        await logToBackend('info', '========================================');
+        await logToBackend('info', 'syncLibrary button clicked - v1.0.52');
+        await logToBackend('info', '========================================');
         try {
             setSyncing(true);
             setMessage('Fetching game list...');
             // Step 1: Get all game appids from backend
-            console.log('[GameProgressTracker] Step 1: Calling backend get_all_games...');
+            await logToBackend('info', 'Step 1: Calling backend get_all_games...');
             const gamesResult = await call('get_all_games');
-            console.log('[GameProgressTracker] get_all_games response:', JSON.stringify(gamesResult).slice(0, 500));
+            await logToBackend('info', `get_all_games response: ${JSON.stringify(gamesResult).slice(0, 500)}`);
             if (!gamesResult.success || !gamesResult.games) {
-                console.error('[GameProgressTracker] get_all_games failed:', gamesResult.error);
+                await logToBackend('error', `get_all_games failed: ${gamesResult.error}`);
                 showMessage(`Failed to get game list: ${gamesResult.error || 'Unknown error'}`);
                 return;
             }
             const appids = gamesResult.games.map(g => g.appid);
-            console.log(`[GameProgressTracker] Step 1 complete: Got ${appids.length} games from backend`);
-            console.log(`[GameProgressTracker] First 5 appids: ${appids.slice(0, 5).join(', ')}`);
+            await logToBackend('info', `Step 1 complete: Got ${appids.length} games from backend`);
+            await logToBackend('info', `First 5 appids: ${appids.slice(0, 5).join(', ')}`);
             // Step 2: Get playtime from Steam frontend API
-            console.log('[GameProgressTracker] Step 2: Getting playtime from Steam frontend API...');
+            await logToBackend('info', 'Step 2: Getting playtime from Steam frontend API...');
             setMessage(`Getting playtime data for ${appids.length} games...`);
-            const playtimeData = getPlaytimeData(appids);
+            const playtimeData = await getPlaytimeData(appids);
             const gamesWithPlaytime = Object.values(playtimeData).filter(v => v > 0).length;
-            console.log(`[GameProgressTracker] Step 2 complete: Got playtime for ${gamesWithPlaytime}/${appids.length} games`);
+            await logToBackend('info', `Step 2 complete: Got playtime for ${gamesWithPlaytime}/${appids.length} games`);
             // Log sample of playtime data
             const sampleEntries = Object.entries(playtimeData).slice(0, 5);
-            console.log('[GameProgressTracker] Sample playtime data:', JSON.stringify(sampleEntries));
+            await logToBackend('info', `Sample playtime data: ${JSON.stringify(sampleEntries)}`);
             // Step 3: Sync with playtime data
-            console.log('[GameProgressTracker] Step 3: Calling backend sync_library_with_playtime...');
-            console.log(`[GameProgressTracker] Sending ${Object.keys(playtimeData).length} playtime entries to backend`);
+            await logToBackend('info', 'Step 3: Calling backend sync_library_with_playtime...');
+            await logToBackend('info', `Sending ${Object.keys(playtimeData).length} playtime entries to backend`);
             setMessage('Syncing library... This may take several minutes.');
             const result = await call('sync_library_with_playtime', { playtime_data: playtimeData });
-            console.log('[GameProgressTracker] Step 3 complete - sync_library_with_playtime result:', result);
+            await logToBackend('info', `Step 3 complete - sync result: ${JSON.stringify(result)}`);
             if (result.success) {
                 showMessage(`Sync complete! ${result.synced}/${result.total} games synced. ` +
                     (result.errors ? `${result.errors} errors.` : ''));
@@ -625,7 +636,7 @@ const Settings = () => {
             SP_REACT.createElement("div", { style: styles.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.0.51"),
+                    "1.0.52"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
                 SP_REACT.createElement("p", { style: styles.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };

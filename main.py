@@ -18,7 +18,7 @@ PLUGIN_DIR = Path(decky.DECKY_PLUGIN_DIR)
 BACKEND_SRC = PLUGIN_DIR / "backend" / "src"
 
 logger = decky.logger
-logger.info("=== Game Progress Tracker v1.0.51 starting ===")
+logger.info("=== Game Progress Tracker v1.0.52 starting ===")
 logger.info(f"Plugin dir: {PLUGIN_DIR}")
 logger.info(f"Backend src: {BACKEND_SRC} exists={BACKEND_SRC.exists()}")
 
@@ -393,6 +393,16 @@ class Plugin:
         except Exception as e:
             logger.error(f"Error getting tag statistics: {e}")
             return {"success": False, "error": str(e)}
+
+    async def log_frontend(self, level: str, message: str) -> Dict[str, bool]:
+        """Log a message from the frontend to the backend log file"""
+        if level == "error":
+            logger.error(f"[FRONTEND] {message}")
+        elif level == "warn":
+            logger.warning(f"[FRONTEND] {message}")
+        else:
+            logger.info(f"[FRONTEND] {message}")
+        return {"success": True}
 
     async def get_all_games(self) -> Dict[str, Any]:
         """Get list of all games for frontend to fetch playtime"""
