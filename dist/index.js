@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.5-debug","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.6-debug","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -629,7 +629,7 @@ const Settings = () => {
     };
     const syncLibrary = async () => {
         await logToBackend('info', '========================================');
-        await logToBackend('info', `syncLibrary button clicked - v${"1.1.5-debug"}`);
+        await logToBackend('info', `syncLibrary button clicked - v${"1.1.6-debug"}`);
         await logToBackend('info', '========================================');
         try {
             setSyncing(true);
@@ -812,7 +812,7 @@ const Settings = () => {
             SP_REACT.createElement("div", { style: styles.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.1.5-debug"),
+                    "1.1.6-debug"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
                 SP_REACT.createElement("p", { style: styles.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };
@@ -1210,11 +1210,38 @@ function extractAppId(path) {
     return match ? match[1] : null;
 }
 /**
+ * Placeholder button when no tag exists
+ */
+const AddTagButton = ({ onClick }) => {
+    const buttonStyle = {
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        background: 'rgba(50, 50, 50, 0.9)',
+        color: '#aaa',
+        padding: '8px 16px',
+        borderRadius: '20px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+        zIndex: 1000,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        userSelect: 'none',
+        border: '1px dashed #666',
+    };
+    return (SP_REACT.createElement("div", { onClick: onClick, style: buttonStyle, title: "Click to add tag" },
+        SP_REACT.createElement("span", { style: { fontSize: '16px' } }, "+"),
+        SP_REACT.createElement("span", null, "Add Tag")));
+};
+/**
  * Game Page Overlay Component
  * Displays tag badge and manages tag editor
  */
 const GamePageOverlay = ({ appid }) => {
-    const { tag, loading, error } = useGameTag(appid);
+    const { tag, loading, error, refetch } = useGameTag(appid);
     const [showManager, setShowManager] = SP_REACT.useState(false);
     SP_REACT.useEffect(() => {
         log(`GamePageOverlay: appid=${appid}, loading=${loading}, tag=`, tag);
@@ -1228,30 +1255,40 @@ const GamePageOverlay = ({ appid }) => {
         return null;
     }
     log(`GamePageOverlay: rendering for appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}`);
+    const handleClick = () => {
+        log(`Tag button clicked for appid=${appid}`);
+        setShowManager(true);
+    };
+    const handleClose = () => {
+        log(`TagManager closed for appid=${appid}`);
+        setShowManager(false);
+        // Refresh tag after closing manager (in case it was changed)
+        refetch();
+    };
     return (SP_REACT.createElement(SP_REACT.Fragment, null,
-        SP_REACT.createElement(GameTag, { tag: tag, onClick: () => {
-                log(`GameTag clicked for appid=${appid}`);
-                setShowManager(true);
-            } }),
-        showManager && (SP_REACT.createElement(TagManager, { appid: appid, onClose: () => {
-                log(`TagManager closed for appid=${appid}`);
-                setShowManager(false);
-            } }))));
+        tag && tag.tag ? (SP_REACT.createElement(GameTag, { tag: tag, onClick: handleClick })) : (SP_REACT.createElement(AddTagButton, { onClick: handleClick })),
+        showManager && (SP_REACT.createElement(TagManager, { appid: appid, onClose: handleClose }))));
 };
 /**
  * Main Plugin Definition
  */
 var index = definePlugin(() => {
+    log('=== Plugin initializing ===');
     // Patch the game library page to inject our tag component
+    log('Adding route patch for /library/app/:appId');
     const gamePagePatch = routerHook.addPatch('/library/app/:appId', (props) => {
+        log(`Route patch called with path: ${props.path}`);
         const appid = extractAppId(props.path);
         if (appid) {
+            log(`Route patch: injecting GamePageOverlay for appid=${appid}`);
             return (SP_REACT.createElement(SP_REACT.Fragment, null,
                 props.children,
                 SP_REACT.createElement(GamePageOverlay, { appid: appid })));
         }
+        log(`Route patch: no appid extracted, returning children only`);
         return props.children;
     });
+    log('Route patch added');
     return {
         name: 'Game Progress Tracker',
         titleView: SP_REACT.createElement("div", { className: DFL.staticClasses.Title }, "Game Progress Tracker"),

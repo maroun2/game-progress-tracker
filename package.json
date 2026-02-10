@@ -1,6 +1,6 @@
 {
   "name": "game-progress-tracker",
-  "version": "1.1.5-debug",
+  "version": "1.1.6-debug",
   "type": "module",
   "description": "Game tagging plugin for Steam Deck",
   "scripts": {

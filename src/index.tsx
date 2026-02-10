@@ -31,11 +31,43 @@ function extractAppId(path: string): string | null {
 }
 
 /**
+ * Placeholder button when no tag exists
+ */
+const AddTagButton: FC<{ onClick: () => void }> = ({ onClick }) => {
+  const buttonStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    background: 'rgba(50, 50, 50, 0.9)',
+    color: '#aaa',
+    padding: '8px 16px',
+    borderRadius: '20px',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+    zIndex: 1000,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    userSelect: 'none',
+    border: '1px dashed #666',
+  };
+
+  return (
+    <div onClick={onClick} style={buttonStyle} title="Click to add tag">
+      <span style={{ fontSize: '16px' }}>+</span>
+      <span>Add Tag</span>
+    </div>
+  );
+};
+
+/**
  * Game Page Overlay Component
  * Displays tag badge and manages tag editor
  */
 const GamePageOverlay: FC<{ appid: string }> = ({ appid }) => {
-  const { tag, loading, error } = useGameTag(appid);
+  const { tag, loading, error, refetch } = useGameTag(appid);
   const [showManager, setShowManager] = useState(false);
 
   useEffect(() => {
@@ -53,19 +85,29 @@ const GamePageOverlay: FC<{ appid: string }> = ({ appid }) => {
 
   log(`GamePageOverlay: rendering for appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}`);
 
+  const handleClick = () => {
+    log(`Tag button clicked for appid=${appid}`);
+    setShowManager(true);
+  };
+
+  const handleClose = () => {
+    log(`TagManager closed for appid=${appid}`);
+    setShowManager(false);
+    // Refresh tag after closing manager (in case it was changed)
+    refetch();
+  };
+
   return (
     <>
-      <GameTag tag={tag} onClick={() => {
-        log(`GameTag clicked for appid=${appid}`);
-        setShowManager(true);
-      }} />
+      {tag && tag.tag ? (
+        <GameTag tag={tag} onClick={handleClick} />
+      ) : (
+        <AddTagButton onClick={handleClick} />
+      )}
       {showManager && (
         <TagManager
           appid={appid}
-          onClose={() => {
-            log(`TagManager closed for appid=${appid}`);
-            setShowManager(false);
-          }}
+          onClose={handleClose}
         />
       )}
     </>
@@ -76,13 +118,18 @@ const GamePageOverlay: FC<{ appid: string }> = ({ appid }) => {
  * Main Plugin Definition
  */
 export default definePlugin(() => {
+  log('=== Plugin initializing ===');
+
   // Patch the game library page to inject our tag component
+  log('Adding route patch for /library/app/:appId');
   const gamePagePatch = routerHook.addPatch(
     '/library/app/:appId',
     (props: { path: string; children: ReactElement }) => {
+      log(`Route patch called with path: ${props.path}`);
       const appid = extractAppId(props.path);
 
       if (appid) {
+        log(`Route patch: injecting GamePageOverlay for appid=${appid}`);
         return (
           <>
             {props.children}
@@ -91,9 +138,11 @@ export default definePlugin(() => {
         );
       }
 
+      log(`Route patch: no appid extracted, returning children only`);
       return props.children;
     }
   );
+  log('Route patch added');
 
   return {
     name: 'Game Progress Tracker',
