@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.0.52","flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.0.56","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -393,20 +393,15 @@ const Settings = () => {
     const [message, setMessage] = SP_REACT.useState(null);
     // Tagged games list state
     const [taggedGames, setTaggedGames] = SP_REACT.useState([]);
-    const [showTaggedList, setShowTaggedList] = SP_REACT.useState(false);
+    const [showTaggedList, setShowTaggedList] = SP_REACT.useState(true);
     const [loadingGames, setLoadingGames] = SP_REACT.useState(false);
     // Settings section state
     const [showSettings, setShowSettings] = SP_REACT.useState(false);
     SP_REACT.useEffect(() => {
         loadSettings();
         loadStats();
+        loadTaggedGames(); // Always load on mount
     }, []);
-    // Auto-load tagged games when stats show there are tagged games
-    SP_REACT.useEffect(() => {
-        if (stats && (stats.completed + stats.in_progress + stats.mastered) > 0) {
-            loadTaggedGames();
-        }
-    }, [stats]);
     const loadSettings = async () => {
         try {
             const result = await call('get_settings');
@@ -419,26 +414,30 @@ const Settings = () => {
         }
     };
     const loadStats = async () => {
+        await logToBackend('info', 'loadStats called');
         try {
             const result = await call('get_tag_statistics');
-            if (result.stats) {
+            await logToBackend('info', `loadStats result: ${JSON.stringify(result)}`);
+            if (result.success && result.stats) {
                 setStats(result.stats);
             }
         }
         catch (err) {
-            console.error('Error loading stats:', err);
+            await logToBackend('error', `loadStats error: ${err}`);
         }
     };
     const loadTaggedGames = async () => {
+        await logToBackend('info', 'loadTaggedGames called');
         try {
             setLoadingGames(true);
             const result = await call('get_all_tags_with_names');
+            await logToBackend('info', `loadTaggedGames result: success=${result.success}, games=${result.games?.length || 0}`);
             if (result.success && result.games) {
                 setTaggedGames(result.games);
             }
         }
         catch (err) {
-            console.error('Error loading tagged games:', err);
+            await logToBackend('error', `loadTaggedGames error: ${err}`);
         }
         finally {
             setLoadingGames(false);
@@ -468,7 +467,7 @@ const Settings = () => {
     };
     const syncLibrary = async () => {
         await logToBackend('info', '========================================');
-        await logToBackend('info', 'syncLibrary button clicked - v1.0.52');
+        await logToBackend('info', `syncLibrary button clicked - v${"1.0.56"}`);
         await logToBackend('info', '========================================');
         try {
             setSyncing(true);
@@ -636,7 +635,7 @@ const Settings = () => {
             SP_REACT.createElement("div", { style: styles.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.0.52"),
+                    "1.0.56"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
                 SP_REACT.createElement("p", { style: styles.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };

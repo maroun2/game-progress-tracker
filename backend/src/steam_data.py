@@ -111,40 +111,71 @@ class SteamDataService:
         return self.user_id
 
     async def get_game_playtime(self, appid: str) -> int:
-        """Get playtime in minutes from localconfig.vdf"""
+        """Get playtime in minutes from localconfig.vdf or config.vdf"""
         user_id = await self.get_steam_user_id()
         if not user_id or not self.steam_path:
             return 0
 
-        localconfig_path = self.steam_path / "userdata" / user_id / "localconfig.vdf"
+        # Try multiple config file locations
+        config_paths = [
+            self.steam_path / "userdata" / user_id / "config" / "localconfig.vdf",
+            self.steam_path / "userdata" / user_id / "localconfig.vdf",
+        ]
 
-        if not localconfig_path.exists():
-            logger.debug(f"localconfig.vdf not found for user {user_id}")
-            return 0
+        for config_path in config_paths:
+            if config_path.exists():
+                logger.debug(f"Found config at: {config_path}")
+                playtime = await self._extract_playtime_from_config(config_path, appid)
+                if playtime > 0:
+                    return playtime
 
+        return 0
+
+    async def _extract_playtime_from_config(self, config_path: Path, appid: str) -> int:
+        """Extract playtime from a config file"""
         try:
-            data = load_vdf_file(localconfig_path)
+            data = load_vdf_file(config_path)
 
-            # Navigate to playtime data
-            # Structure: UserLocalConfigStore -> Software -> Valve -> Steam -> Apps -> {appid} -> PlayTime
-            apps = (
-                data.get("UserLocalConfigStore", {})
-                .get("Software", {})
-                .get("Valve", {})
-                .get("Steam", {})
-                .get("Apps", {})
-            )
+            # Log top-level keys for debugging
+            top_keys = list(data.keys())
+            logger.debug(f"Config top-level keys: {top_keys}")
 
-            if appid in apps and "LastPlayed" in apps[appid]:
-                playtime_seconds = apps[appid].get("TotalPlayTime", 0)
-                if playtime_seconds:
-                    return int(playtime_seconds) // 60
+            # Navigate through possible structures
+            user_config = data.get("UserLocalConfigStore", data.get("UserRoamingConfigStore", {}))
 
-            logger.debug(f"No playtime found for appid {appid}")
+            if not user_config:
+                logger.debug("No UserLocalConfigStore or UserRoamingConfigStore found")
+                return 0
+
+            software = user_config.get("Software", user_config.get("software", {}))
+            valve = software.get("Valve", software.get("valve", {}))
+            steam = valve.get("Steam", valve.get("steam", {}))
+
+            # Try both 'apps' and 'Apps'
+            apps = steam.get("apps", steam.get("Apps", {}))
+
+            if not apps:
+                logger.debug(f"No apps section found. Steam keys: {list(steam.keys())[:5]}")
+                return 0
+
+            if appid in apps:
+                app_data = apps[appid]
+                logger.debug(f"App {appid} data keys: {list(app_data.keys()) if isinstance(app_data, dict) else 'not a dict'}")
+
+                if isinstance(app_data, dict):
+                    # Try all known playtime field names
+                    for field in ["Playtime", "playtime", "PlaytimeForever", "playtime_forever",
+                                  "TotalPlayTime", "totalplaytime", "playtime2", "Playtime2"]:
+                        if field in app_data:
+                            try:
+                                return int(app_data[field])
+                            except (ValueError, TypeError):
+                                pass
+
             return 0
 
         except Exception as e:
-            logger.error(f"Failed to parse localconfig.vdf: {e}")
+            logger.error(f"Failed to parse config file: {e}")
             return 0
 
     async def get_game_name(self, appid: str) -> str:

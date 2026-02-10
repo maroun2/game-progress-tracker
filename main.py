@@ -117,7 +117,13 @@ class Plugin:
     # ==================== Tag Calculation Logic ====================
 
     async def calculate_auto_tag(self, appid: str) -> Optional[str]:
-        """Calculate automatic tag based on game stats"""
+        """Calculate automatic tag based on game stats
+
+        Tag priority:
+        1. Mastered: 100% achievements unlocked
+        2. Completed: playtime >= main_story time from HLTB
+        3. In Progress: playtime >= threshold (default 30 min)
+        """
         # Get game statistics
         stats = await self.db.get_game_stats(appid)
         if not stats:
@@ -129,28 +135,26 @@ class Plugin:
 
         # Get settings
         settings = await self.db.get_all_settings()
-        mastered_multiplier = settings.get('mastered_multiplier', 1.5)
-        in_progress_threshold = settings.get('in_progress_threshold', 60)
+        in_progress_threshold = settings.get('in_progress_threshold', 30)  # Default 30 min
 
-        # Priority 1: Completed (100% achievements)
+        # Priority 1: Mastered (100% achievements)
         if stats['total_achievements'] > 0:
             if stats['unlocked_achievements'] >= stats['total_achievements']:
-                return "completed"
+                return "mastered"
 
-        # Priority 2: Mastered (played > main_story * multiplier)
-        # Use main_story time, not main_extra (completionist time)
+        # Priority 2: Completed (beat main story - playtime >= main_story)
         if hltb and hltb.get('main_story'):
             main_story_hours = hltb['main_story']
-            mastered_threshold = main_story_hours * mastered_multiplier * 60  # Convert to minutes
+            main_story_minutes = main_story_hours * 60
 
-            if stats['playtime_minutes'] >= mastered_threshold:
-                return "mastered"
+            if stats['playtime_minutes'] >= main_story_minutes:
+                return "completed"
 
         # Priority 3: In Progress (played >= threshold)
         if stats['playtime_minutes'] >= in_progress_threshold:
             return "in_progress"
 
-        return None  # No tag
+        return None  # No tag (backlog)
 
     async def sync_game_tags(self, appid: str, force: bool = False) -> Dict[str, Any]:
         """Sync tags for a single game"""

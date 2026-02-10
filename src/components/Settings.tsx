@@ -84,8 +84,8 @@ const TAG_COLORS: Record<string, string> = {
 export const Settings: FC = () => {
   const [settings, setSettings] = useState<PluginSettings>({
     auto_tag_enabled: true,
-    mastered_multiplier: 1.5,
-    in_progress_threshold: 60,
+    mastered_multiplier: 1.5,  // Deprecated, kept for compatibility
+    in_progress_threshold: 30,
     cache_ttl: 7200
   });
   const [stats, setStats] = useState<TagStatistics | null>(null);
@@ -262,8 +262,8 @@ export const Settings: FC = () => {
   }, {} as Record<string, TaggedGame[]>);
 
   const tagLabels: Record<string, string> = {
-    completed: 'Completed',
-    mastered: 'Mastered',
+    mastered: 'Mastered (100% Achievements)',
+    completed: 'Completed (Beat Main Story)',
     in_progress: 'In Progress',
   };
 
@@ -330,10 +330,10 @@ export const Settings: FC = () => {
               <div style={styles.loadingText}>Loading games...</div>
             ) : taggedGames.length === 0 ? (
               <div style={styles.loadingText}>
-                No tagged games yet. Games need 60+ min playtime, 100% achievements, or HLTB mastery to be tagged.
+                No tagged games yet. Click "Sync Entire Library" to tag your games based on playtime and achievements.
               </div>
             ) : (
-              ['completed', 'mastered', 'in_progress'].map((tagType) => {
+              ['mastered', 'completed', 'in_progress'].map((tagType) => {
                 const games = groupedGames[tagType] || [];
                 if (games.length === 0) return null;
 
@@ -417,25 +417,21 @@ export const Settings: FC = () => {
               </div>
             </div>
 
-            {/* Tag Thresholds */}
+            {/* Tag Rules Info */}
             <div style={styles.settingGroup}>
-              <h4 style={styles.settingGroupTitle}>Tag Thresholds</h4>
-
-              <div style={styles.settingRow}>
-                <label style={styles.label}>
-                  Mastered Multiplier: {settings.mastered_multiplier}x
-                </label>
-                <input
-                  type="range"
-                  min="1.0"
-                  max="3.0"
-                  step="0.1"
-                  value={settings.mastered_multiplier}
-                  onChange={(e) => updateSetting('mastered_multiplier', parseFloat(e.target.value))}
-                  style={styles.slider}
-                />
-                <div style={styles.hint}>
-                  Playtime must be this many times the HLTB completion time
+              <h4 style={styles.settingGroupTitle}>Tag Rules</h4>
+              <div style={styles.tagRulesInfo}>
+                <div style={styles.tagRule}>
+                  <span style={{ ...styles.tagDot, backgroundColor: TAG_COLORS.mastered }} />
+                  <strong>Mastered:</strong> 100% achievements unlocked
+                </div>
+                <div style={styles.tagRule}>
+                  <span style={{ ...styles.tagDot, backgroundColor: TAG_COLORS.completed }} />
+                  <strong>Completed:</strong> Playtime ≥ main story time (from HLTB)
+                </div>
+                <div style={styles.tagRule}>
+                  <span style={{ ...styles.tagDot, backgroundColor: TAG_COLORS.in_progress }} />
+                  <strong>In Progress:</strong> Playtime ≥ {settings.in_progress_threshold} minutes
                 </div>
               </div>
 
@@ -446,7 +442,7 @@ export const Settings: FC = () => {
                 <input
                   type="range"
                   min="15"
-                  max="300"
+                  max="120"
                   step="15"
                   value={settings.in_progress_threshold}
                   onChange={(e) => updateSetting('in_progress_threshold', parseInt(e.target.value))}
@@ -697,5 +693,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     color: '#888',
     marginTop: '8px',
+  },
+  tagRulesInfo: {
+    marginBottom: '16px',
+    padding: '12px',
+    backgroundColor: '#252525',
+    borderRadius: '4px',
+  },
+  tagRule: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '8px',
+    fontSize: '13px',
   },
 };

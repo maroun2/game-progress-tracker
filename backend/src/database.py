@@ -98,11 +98,11 @@ class Database:
         """)
 
         # Insert default settings
+        # Note: mastered_multiplier is no longer used (mastered = 100% achievements)
         cursor.execute("""
             INSERT OR IGNORE INTO settings (key, value) VALUES
                 ('auto_tag_enabled', 'true'),
-                ('mastered_multiplier', '1.5'),
-                ('in_progress_threshold', '60'),
+                ('in_progress_threshold', '30'),
                 ('cache_ttl', '7200')
         """)
 
