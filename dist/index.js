@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.7-debug","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.8","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -74,380 +74,6 @@ const TagIcon = ({ type, size = 24, className }) => {
         type === 'completed' && SP_REACT.createElement(CheckCircleIcon, { size: size, color: color }),
         type === 'in_progress' && SP_REACT.createElement(ClockIcon, { size: size, color: color }),
         type === 'backlog' && SP_REACT.createElement(EmptyCircleIcon, { size: size, color: color })));
-};
-
-/**
- * GameTag Component
- * Displays a colored badge with icon for game tags
- */
-// Debug logging helper
-const log$3 = (msg, data) => {
-    const logMsg = `[GameProgressTracker][GameTag] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
-const TAG_STYLES = {
-    completed: {
-        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-        label: 'Completed'
-    },
-    in_progress: {
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        label: 'In Progress'
-    },
-    mastered: {
-        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        label: 'Mastered'
-    }
-};
-const GameTag = ({ tag, onClick, compact = false }) => {
-    log$3(`GameTag render: tag=${tag?.tag || 'null'}, compact=${compact}, hasOnClick=${!!onClick}`);
-    if (!tag || !tag.tag) {
-        log$3('GameTag: no tag, returning null');
-        return null;
-    }
-    const style = TAG_STYLES[tag.tag];
-    if (!style) {
-        log$3(`GameTag: no style for tag=${tag.tag}, returning null`);
-        return null;
-    }
-    log$3(`GameTag: rendering badge for tag=${tag.tag}`);
-    // Compact mode: just the icon with background circle
-    if (compact) {
-        const compactStyle = {
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: '50%',
-            padding: '4px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
-            zIndex: 1000,
-            cursor: onClick ? 'pointer' : 'default',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            userSelect: 'none',
-        };
-        return (SP_REACT.createElement("div", { onClick: onClick, style: compactStyle, title: style.label },
-            SP_REACT.createElement(TagIcon, { type: tag.tag, size: 16 })));
-    }
-    // Full mode: badge with icon and text
-    const containerStyle = {
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        background: style.background,
-        color: 'white',
-        padding: '8px 16px',
-        borderRadius: '20px',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-        zIndex: 1000,
-        cursor: onClick ? 'pointer' : 'default',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        userSelect: 'none',
-        transition: 'transform 0.2s ease',
-    };
-    return (SP_REACT.createElement("div", { onClick: onClick, style: containerStyle, title: tag.is_manual ? 'Manual tag - Click to edit' : 'Automatic tag - Click to edit' },
-        SP_REACT.createElement(TagIcon, { type: tag.tag, size: 18 }),
-        SP_REACT.createElement("span", null, style.label),
-        tag.is_manual && (SP_REACT.createElement("span", { style: { fontSize: '12px', opacity: 0.8 } }, "\u270E"))));
-};
-
-/**
- * TagManager Component
- * Modal for managing game tags manually
- */
-// Debug logging helper
-const log$2 = (msg, data) => {
-    const logMsg = `[GameProgressTracker][TagManager] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
-const TagManager = ({ appid, onClose }) => {
-    const [details, setDetails] = SP_REACT.useState(null);
-    const [loading, setLoading] = SP_REACT.useState(true);
-    const [error, setError] = SP_REACT.useState(null);
-    log$2(`TagManager mounted for appid=${appid}`);
-    SP_REACT.useEffect(() => {
-        log$2(`TagManager useEffect: fetching details for appid=${appid}`);
-        fetchDetails();
-    }, [appid]);
-    const fetchDetails = async () => {
-        try {
-            log$2(`fetchDetails: calling get_game_details for appid=${appid}`);
-            setLoading(true);
-            setError(null);
-            const result = await call('get_game_details', { appid });
-            log$2(`fetchDetails: result for appid=${appid}:`, result);
-            setDetails(result);
-        }
-        catch (err) {
-            const errorMsg = err?.message || 'Failed to load game details';
-            setError(errorMsg);
-            log$2(`fetchDetails: error for appid=${appid}: ${errorMsg}`, err);
-        }
-        finally {
-            setLoading(false);
-        }
-    };
-    const setTag = async (tag) => {
-        try {
-            log$2(`setTag: calling set_manual_tag for appid=${appid}, tag=${tag}`);
-            const result = await call('set_manual_tag', { appid, tag });
-            log$2(`setTag: result for appid=${appid}:`, result);
-            await fetchDetails();
-        }
-        catch (err) {
-            const errorMsg = err?.message || 'Failed to set tag';
-            setError(errorMsg);
-            log$2(`setTag: error for appid=${appid}: ${errorMsg}`, err);
-        }
-    };
-    const resetToAuto = async () => {
-        try {
-            log$2(`resetToAuto: calling reset_to_auto_tag for appid=${appid}`);
-            const result = await call('reset_to_auto_tag', { appid });
-            log$2(`resetToAuto: result for appid=${appid}:`, result);
-            await fetchDetails();
-        }
-        catch (err) {
-            const errorMsg = err?.message || 'Failed to reset tag';
-            setError(errorMsg);
-            log$2(`resetToAuto: error for appid=${appid}: ${errorMsg}`, err);
-        }
-    };
-    const removeTag = async () => {
-        try {
-            log$2(`removeTag: calling remove_tag for appid=${appid}`);
-            const result = await call('remove_tag', { appid });
-            log$2(`removeTag: result for appid=${appid}:`, result);
-            await fetchDetails();
-        }
-        catch (err) {
-            const errorMsg = err?.message || 'Failed to remove tag';
-            setError(errorMsg);
-            log$2(`removeTag: error for appid=${appid}: ${errorMsg}`, err);
-        }
-    };
-    if (loading) {
-        return (SP_REACT.createElement("div", { style: styles$1.modal },
-            SP_REACT.createElement("div", { style: styles$1.content },
-                SP_REACT.createElement("div", { style: styles$1.loading }, "Loading..."))));
-    }
-    if (error || !details || !details.success) {
-        return (SP_REACT.createElement("div", { style: styles$1.modal },
-            SP_REACT.createElement("div", { style: styles$1.content },
-                SP_REACT.createElement("div", { style: styles$1.error }, error || 'Failed to load game details'),
-                SP_REACT.createElement("button", { onClick: onClose, style: styles$1.button }, "Close"))));
-    }
-    const stats = details.stats;
-    const tag = details.tag;
-    const hltb = details.hltb_data;
-    return (SP_REACT.createElement("div", { style: styles$1.modal, onClick: onClose },
-        SP_REACT.createElement("div", { style: styles$1.content, onClick: (e) => e.stopPropagation() },
-            SP_REACT.createElement("h2", { style: styles$1.title },
-                "Manage Tags: ",
-                stats?.game_name || `Game ${appid}`),
-            SP_REACT.createElement("div", { style: styles$1.section },
-                SP_REACT.createElement("h3", { style: styles$1.sectionTitle }, "Game Statistics"),
-                stats && (SP_REACT.createElement(SP_REACT.Fragment, null,
-                    SP_REACT.createElement("div", { style: styles$1.statRow },
-                        SP_REACT.createElement("span", null, "Playtime:"),
-                        SP_REACT.createElement("span", null,
-                            Math.floor(stats.playtime_minutes / 60),
-                            "h ",
-                            stats.playtime_minutes % 60,
-                            "m")),
-                    SP_REACT.createElement("div", { style: styles$1.statRow },
-                        SP_REACT.createElement("span", null, "Achievements:"),
-                        SP_REACT.createElement("span", null,
-                            stats.unlocked_achievements,
-                            "/",
-                            stats.total_achievements)))),
-                hltb && (SP_REACT.createElement(SP_REACT.Fragment, null,
-                    SP_REACT.createElement("div", { style: styles$1.statRow },
-                        SP_REACT.createElement("span", null, "HLTB Match:"),
-                        SP_REACT.createElement("span", null,
-                            hltb.matched_name,
-                            " (",
-                            (hltb.similarity * 100).toFixed(0),
-                            "%)")),
-                    hltb.main_extra && (SP_REACT.createElement("div", { style: styles$1.statRow },
-                        SP_REACT.createElement("span", null, "Main+Extra:"),
-                        SP_REACT.createElement("span", null,
-                            hltb.main_extra,
-                            "h")))))),
-            SP_REACT.createElement("div", { style: styles$1.section },
-                SP_REACT.createElement("h3", { style: styles$1.sectionTitle }, "Current Tag"),
-                SP_REACT.createElement("div", { style: styles$1.currentTag }, tag?.tag ? (SP_REACT.createElement(SP_REACT.Fragment, null,
-                    SP_REACT.createElement(TagIcon, { type: tag.tag, size: 24 }),
-                    SP_REACT.createElement("span", { style: { color: TAG_ICON_COLORS[tag.tag] } }, tag.tag.replace('_', ' ').toUpperCase()),
-                    SP_REACT.createElement("span", { style: styles$1.tagType }, tag.is_manual ? '(Manual)' : '(Automatic)'))) : (SP_REACT.createElement("span", { style: styles$1.noTag }, "No tag assigned")))),
-            SP_REACT.createElement("div", { style: styles$1.section },
-                SP_REACT.createElement("h3", { style: styles$1.sectionTitle }, "Set Tag"),
-                SP_REACT.createElement("div", { style: styles$1.tagButtonGroup },
-                    SP_REACT.createElement("button", { onClick: () => setTag('mastered'), style: { ...styles$1.tagButton, backgroundColor: TAG_ICON_COLORS.mastered } },
-                        SP_REACT.createElement(TagIcon, { type: "mastered", size: 20 }),
-                        SP_REACT.createElement("span", null, "Mastered")),
-                    SP_REACT.createElement("button", { onClick: () => setTag('completed'), style: { ...styles$1.tagButton, backgroundColor: TAG_ICON_COLORS.completed } },
-                        SP_REACT.createElement(TagIcon, { type: "completed", size: 20 }),
-                        SP_REACT.createElement("span", null, "Completed")),
-                    SP_REACT.createElement("button", { onClick: () => setTag('in_progress'), style: { ...styles$1.tagButton, backgroundColor: TAG_ICON_COLORS.in_progress } },
-                        SP_REACT.createElement(TagIcon, { type: "in_progress", size: 20 }),
-                        SP_REACT.createElement("span", null, "In Progress"))),
-                SP_REACT.createElement("div", { style: styles$1.buttonGroup },
-                    SP_REACT.createElement("button", { onClick: resetToAuto, style: styles$1.secondaryButton }, "Reset to Automatic"),
-                    SP_REACT.createElement("button", { onClick: removeTag, style: styles$1.secondaryButton }, "Remove Tag"))),
-            SP_REACT.createElement("button", { onClick: onClose, style: styles$1.closeButton }, "Close"))));
-};
-const styles$1 = {
-    modal: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-    },
-    content: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: '8px',
-        padding: '24px',
-        maxWidth: '600px',
-        width: '90%',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        color: 'white',
-    },
-    title: {
-        margin: '0 0 20px 0',
-        fontSize: '20px',
-        fontWeight: 'bold',
-    },
-    section: {
-        marginBottom: '20px',
-        paddingBottom: '20px',
-        borderBottom: '1px solid #333',
-    },
-    sectionTitle: {
-        margin: '0 0 12px 0',
-        fontSize: '16px',
-        fontWeight: 'bold',
-        color: '#aaa',
-    },
-    statRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '8px 0',
-        fontSize: '14px',
-    },
-    currentTag: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        padding: '12px',
-        backgroundColor: '#252525',
-        borderRadius: '6px',
-        fontSize: '16px',
-        fontWeight: 'bold',
-    },
-    tagType: {
-        fontSize: '12px',
-        color: '#888',
-        fontWeight: 'normal',
-    },
-    noTag: {
-        color: '#888',
-        fontStyle: 'italic',
-    },
-    buttonGroup: {
-        display: 'flex',
-        gap: '8px',
-        marginBottom: '8px',
-        flexWrap: 'wrap',
-    },
-    tagButtonGroup: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        marginBottom: '12px',
-    },
-    tagButton: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '10px',
-        padding: '14px',
-        border: 'none',
-        borderRadius: '6px',
-        color: 'white',
-        fontSize: '15px',
-        fontWeight: 'bold',
-        cursor: 'pointer',
-        transition: 'opacity 0.2s',
-    },
-    secondaryButton: {
-        flex: 1,
-        padding: '10px',
-        backgroundColor: '#444',
-        border: 'none',
-        borderRadius: '4px',
-        color: 'white',
-        fontSize: '13px',
-        cursor: 'pointer',
-        transition: 'background-color 0.2s',
-    },
-    closeButton: {
-        width: '100%',
-        padding: '12px',
-        backgroundColor: '#555',
-        border: 'none',
-        borderRadius: '4px',
-        color: 'white',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        cursor: 'pointer',
-        marginTop: '8px',
-    },
-    loading: {
-        textAlign: 'center',
-        padding: '40px',
-        fontSize: '16px',
-    },
-    error: {
-        textAlign: 'center',
-        padding: '20px',
-        fontSize: '14px',
-        color: '#ff6b6b',
-    },
-    button: {
-        padding: '12px 24px',
-        backgroundColor: '#667eea',
-        border: 'none',
-        borderRadius: '4px',
-        color: 'white',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        cursor: 'pointer',
-        marginTop: '12px',
-    },
 };
 
 /**
@@ -629,7 +255,7 @@ const Settings = () => {
     };
     const syncLibrary = async () => {
         await logToBackend('info', '========================================');
-        await logToBackend('info', `syncLibrary button clicked - v${"1.1.7-debug"}`);
+        await logToBackend('info', `syncLibrary button clicked - v${"1.1.8"}`);
         await logToBackend('info', '========================================');
         try {
             setSyncing(true);
@@ -720,103 +346,103 @@ const Settings = () => {
         }
         return (groupedGames[tagType] || []).length;
     };
-    return (SP_REACT.createElement("div", { style: styles.container },
-        SP_REACT.createElement("h2", { style: styles.title }, "Game Progress Tracker"),
-        message && (SP_REACT.createElement("div", { style: styles.message }, message)),
-        SP_REACT.createElement("div", { style: styles.section },
-            SP_REACT.createElement("h3", { style: styles.sectionTitle },
+    return (SP_REACT.createElement("div", { style: styles$1.container },
+        SP_REACT.createElement("h2", { style: styles$1.title }, "Game Progress Tracker"),
+        message && (SP_REACT.createElement("div", { style: styles$1.message }, message)),
+        SP_REACT.createElement("div", { style: styles$1.section },
+            SP_REACT.createElement("h3", { style: styles$1.sectionTitle },
                 "Library (",
                 totalGames,
                 " games)"),
-            loadingGames ? (SP_REACT.createElement("div", { style: styles.loadingText }, "Loading games...")) : totalGames === 0 ? (SP_REACT.createElement("div", { style: styles.loadingText }, "No games synced yet. Click \"Sync Entire Library\" to tag your games based on playtime and achievements.")) : (SP_REACT.createElement("div", { style: styles.taggedListContainer }, ['completed', 'in_progress', 'backlog', 'mastered'].map((tagType) => {
+            loadingGames ? (SP_REACT.createElement("div", { style: styles$1.loadingText }, "Loading games...")) : totalGames === 0 ? (SP_REACT.createElement("div", { style: styles$1.loadingText }, "No games synced yet. Click \"Sync Entire Library\" to tag your games based on playtime and achievements.")) : (SP_REACT.createElement("div", { style: styles$1.taggedListContainer }, ['completed', 'in_progress', 'backlog', 'mastered'].map((tagType) => {
                 if (!tagType)
                     return null;
                 const games = groupedGames[tagType] || [];
                 const count = getCategoryCount(tagType);
                 const isExpanded = expandedSections[tagType];
                 const isBacklog = tagType === 'backlog';
-                return (SP_REACT.createElement("div", { key: tagType, style: styles.tagSection },
+                return (SP_REACT.createElement("div", { key: tagType, style: styles$1.tagSection },
                     SP_REACT.createElement("button", { onClick: () => !isBacklog && toggleSection(tagType), style: {
-                            ...styles.tagSectionHeader,
+                            ...styles$1.tagSectionHeader,
                             cursor: isBacklog ? 'default' : 'pointer',
                         } },
-                        SP_REACT.createElement("div", { style: styles.tagSectionLeft },
+                        SP_REACT.createElement("div", { style: styles$1.tagSectionLeft },
                             SP_REACT.createElement(TagIcon, { type: tagType, size: 18 }),
-                            SP_REACT.createElement("span", { style: styles.tagSectionTitle }, tagLabels[tagType])),
-                        SP_REACT.createElement("div", { style: styles.tagSectionRight },
-                            SP_REACT.createElement("span", { style: { ...styles.tagCount, color: TAG_COLORS[tagType] } }, count),
-                            !isBacklog && (SP_REACT.createElement("span", { style: styles.expandIcon }, isExpanded ? '−' : '+')))),
-                    !isBacklog && isExpanded && games.length > 0 && (SP_REACT.createElement("div", { style: styles.gameList }, games.map((game) => (SP_REACT.createElement("div", { key: game.appid, style: styles.gameItem, onClick: () => navigateToGame(game.appid) },
+                            SP_REACT.createElement("span", { style: styles$1.tagSectionTitle }, tagLabels[tagType])),
+                        SP_REACT.createElement("div", { style: styles$1.tagSectionRight },
+                            SP_REACT.createElement("span", { style: { ...styles$1.tagCount, color: TAG_COLORS[tagType] } }, count),
+                            !isBacklog && (SP_REACT.createElement("span", { style: styles$1.expandIcon }, isExpanded ? '−' : '+')))),
+                    !isBacklog && isExpanded && games.length > 0 && (SP_REACT.createElement("div", { style: styles$1.gameList }, games.map((game) => (SP_REACT.createElement("div", { key: game.appid, style: styles$1.gameItem, onClick: () => navigateToGame(game.appid) },
                         SP_REACT.createElement("span", { style: {
-                                ...styles.smallDot,
+                                ...styles$1.smallDot,
                                 backgroundColor: TAG_COLORS[game.tag],
                             } }),
-                        SP_REACT.createElement("span", { style: styles.gameName }, game.game_name),
-                        game.is_manual && (SP_REACT.createElement("span", { style: styles.manualBadge }, "manual"))))))),
-                    !isBacklog && isExpanded && games.length === 0 && (SP_REACT.createElement("div", { style: styles.emptySection }, "No games with this tag"))));
+                        SP_REACT.createElement("span", { style: styles$1.gameName }, game.game_name),
+                        game.is_manual && (SP_REACT.createElement("span", { style: styles$1.manualBadge }, "manual"))))))),
+                    !isBacklog && isExpanded && games.length === 0 && (SP_REACT.createElement("div", { style: styles$1.emptySection }, "No games with this tag"))));
             })))),
-        SP_REACT.createElement("div", { style: styles.section },
-            SP_REACT.createElement("button", { onClick: syncLibrary, disabled: syncing || loading, style: syncing ? styles.buttonDisabled : styles.button }, syncing ? 'Syncing...' : 'Sync Entire Library'),
-            SP_REACT.createElement("div", { style: styles.hint }, "Sync may take several minutes for large libraries")),
-        SP_REACT.createElement("div", { style: styles.section },
-            SP_REACT.createElement("button", { onClick: () => setShowSettings(!showSettings), style: styles.expandButton },
+        SP_REACT.createElement("div", { style: styles$1.section },
+            SP_REACT.createElement("button", { onClick: syncLibrary, disabled: syncing || loading, style: syncing ? styles$1.buttonDisabled : styles$1.button }, syncing ? 'Syncing...' : 'Sync Entire Library'),
+            SP_REACT.createElement("div", { style: styles$1.hint }, "Sync may take several minutes for large libraries")),
+        SP_REACT.createElement("div", { style: styles$1.section },
+            SP_REACT.createElement("button", { onClick: () => setShowSettings(!showSettings), style: styles$1.expandButton },
                 showSettings ? '- Hide' : '+ Show',
                 " Settings"),
-            showSettings && (SP_REACT.createElement("div", { style: styles.settingsContainer },
-                SP_REACT.createElement("div", { style: styles.settingGroup },
-                    SP_REACT.createElement("h4", { style: styles.settingGroupTitle }, "Automatic Tagging"),
-                    SP_REACT.createElement("div", { style: styles.settingRow },
-                        SP_REACT.createElement("label", { style: styles.label },
-                            SP_REACT.createElement("input", { type: "checkbox", checked: settings.auto_tag_enabled, onChange: (e) => updateSetting('auto_tag_enabled', e.target.checked), style: styles.checkbox }),
+            showSettings && (SP_REACT.createElement("div", { style: styles$1.settingsContainer },
+                SP_REACT.createElement("div", { style: styles$1.settingGroup },
+                    SP_REACT.createElement("h4", { style: styles$1.settingGroupTitle }, "Automatic Tagging"),
+                    SP_REACT.createElement("div", { style: styles$1.settingRow },
+                        SP_REACT.createElement("label", { style: styles$1.label },
+                            SP_REACT.createElement("input", { type: "checkbox", checked: settings.auto_tag_enabled, onChange: (e) => updateSetting('auto_tag_enabled', e.target.checked), style: styles$1.checkbox }),
                             "Enable Auto-Tagging"))),
-                SP_REACT.createElement("div", { style: styles.settingGroup },
-                    SP_REACT.createElement("h4", { style: styles.settingGroupTitle }, "Tag Rules"),
-                    SP_REACT.createElement("div", { style: styles.tagRulesInfo },
-                        SP_REACT.createElement("div", { style: styles.tagRule },
+                SP_REACT.createElement("div", { style: styles$1.settingGroup },
+                    SP_REACT.createElement("h4", { style: styles$1.settingGroupTitle }, "Tag Rules"),
+                    SP_REACT.createElement("div", { style: styles$1.tagRulesInfo },
+                        SP_REACT.createElement("div", { style: styles$1.tagRule },
                             SP_REACT.createElement(TagIcon, { type: "mastered", size: 16 }),
                             SP_REACT.createElement("strong", null, "Mastered:"),
                             " 100% achievements unlocked"),
-                        SP_REACT.createElement("div", { style: styles.tagRule },
+                        SP_REACT.createElement("div", { style: styles$1.tagRule },
                             SP_REACT.createElement(TagIcon, { type: "completed", size: 16 }),
                             SP_REACT.createElement("strong", null, "Completed:"),
                             " Playtime \u2265 main story time (from HLTB)"),
-                        SP_REACT.createElement("div", { style: styles.tagRule },
+                        SP_REACT.createElement("div", { style: styles$1.tagRule },
                             SP_REACT.createElement(TagIcon, { type: "in_progress", size: 16 }),
                             SP_REACT.createElement("strong", null, "In Progress:"),
                             " Playtime \u2265 ",
                             settings.in_progress_threshold,
                             " minutes")),
-                    SP_REACT.createElement("div", { style: styles.settingRow },
-                        SP_REACT.createElement("label", { style: styles.label },
+                    SP_REACT.createElement("div", { style: styles$1.settingRow },
+                        SP_REACT.createElement("label", { style: styles$1.label },
                             "In Progress Threshold: ",
                             settings.in_progress_threshold,
                             " minutes"),
-                        SP_REACT.createElement("input", { type: "range", min: "15", max: "120", step: "15", value: settings.in_progress_threshold, onChange: (e) => updateSetting('in_progress_threshold', parseInt(e.target.value)), style: styles.slider }),
-                        SP_REACT.createElement("div", { style: styles.hint }, "Minimum playtime to mark as In Progress"))),
-                SP_REACT.createElement("div", { style: styles.settingGroup },
-                    SP_REACT.createElement("h4", { style: styles.settingGroupTitle }, "Game Sources"),
-                    SP_REACT.createElement("div", { style: styles.hint }, "Select which games to include when syncing"),
-                    SP_REACT.createElement("div", { style: styles.settingRow },
-                        SP_REACT.createElement("label", { style: styles.label },
-                            SP_REACT.createElement("input", { type: "checkbox", checked: settings.source_installed, onChange: (e) => updateSetting('source_installed', e.target.checked), style: styles.checkbox }),
+                        SP_REACT.createElement("input", { type: "range", min: "15", max: "120", step: "15", value: settings.in_progress_threshold, onChange: (e) => updateSetting('in_progress_threshold', parseInt(e.target.value)), style: styles$1.slider }),
+                        SP_REACT.createElement("div", { style: styles$1.hint }, "Minimum playtime to mark as In Progress"))),
+                SP_REACT.createElement("div", { style: styles$1.settingGroup },
+                    SP_REACT.createElement("h4", { style: styles$1.settingGroupTitle }, "Game Sources"),
+                    SP_REACT.createElement("div", { style: styles$1.hint }, "Select which games to include when syncing"),
+                    SP_REACT.createElement("div", { style: styles$1.settingRow },
+                        SP_REACT.createElement("label", { style: styles$1.label },
+                            SP_REACT.createElement("input", { type: "checkbox", checked: settings.source_installed, onChange: (e) => updateSetting('source_installed', e.target.checked), style: styles$1.checkbox }),
                             "Installed Steam Games")),
-                    SP_REACT.createElement("div", { style: styles.settingRow },
-                        SP_REACT.createElement("label", { style: styles.label },
-                            SP_REACT.createElement("input", { type: "checkbox", checked: settings.source_non_steam, onChange: (e) => updateSetting('source_non_steam', e.target.checked), style: styles.checkbox }),
+                    SP_REACT.createElement("div", { style: styles$1.settingRow },
+                        SP_REACT.createElement("label", { style: styles$1.label },
+                            SP_REACT.createElement("input", { type: "checkbox", checked: settings.source_non_steam, onChange: (e) => updateSetting('source_non_steam', e.target.checked), style: styles$1.checkbox }),
                             "Non-Steam Games (Shortcuts)"))),
-                SP_REACT.createElement("div", { style: styles.settingGroup },
-                    SP_REACT.createElement("h4", { style: styles.settingGroupTitle }, "Cache"),
-                    SP_REACT.createElement("button", { onClick: refreshCache, disabled: syncing || loading, style: styles.buttonSecondary }, "Refresh HLTB Cache"))))),
-        SP_REACT.createElement("div", { style: styles.section },
-            SP_REACT.createElement("h3", { style: styles.sectionTitle }, "About"),
-            SP_REACT.createElement("div", { style: styles.about },
+                SP_REACT.createElement("div", { style: styles$1.settingGroup },
+                    SP_REACT.createElement("h4", { style: styles$1.settingGroupTitle }, "Cache"),
+                    SP_REACT.createElement("button", { onClick: refreshCache, disabled: syncing || loading, style: styles$1.buttonSecondary }, "Refresh HLTB Cache"))))),
+        SP_REACT.createElement("div", { style: styles$1.section },
+            SP_REACT.createElement("h3", { style: styles$1.sectionTitle }, "About"),
+            SP_REACT.createElement("div", { style: styles$1.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.1.7-debug"),
+                    "1.1.8"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
-                SP_REACT.createElement("p", { style: styles.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
+                SP_REACT.createElement("p", { style: styles$1.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };
-const styles = {
+const styles$1 = {
     container: {
         padding: '16px',
         color: 'white',
@@ -1090,10 +716,382 @@ const styles = {
 };
 
 /**
+ * GameTag Component
+ * Displays a colored badge with icon for game tags
+ */
+// Debug logging helper
+const log$5 = (msg, data) => {
+    const logMsg = `[GameProgressTracker][GameTag] ${msg}`;
+    if (data !== undefined) {
+        console.log(logMsg, data);
+    }
+    else {
+        console.log(logMsg);
+    }
+};
+const TAG_STYLES = {
+    completed: {
+        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+        label: 'Completed'
+    },
+    in_progress: {
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        label: 'In Progress'
+    },
+    mastered: {
+        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        label: 'Mastered'
+    }
+};
+const GameTag = ({ tag, onClick, compact = false }) => {
+    log$5(`GameTag render: tag=${tag?.tag || 'null'}, compact=${compact}, hasOnClick=${!!onClick}`);
+    if (!tag || !tag.tag) {
+        log$5('GameTag: no tag, returning null');
+        return null;
+    }
+    const style = TAG_STYLES[tag.tag];
+    if (!style) {
+        log$5(`GameTag: no style for tag=${tag.tag}, returning null`);
+        return null;
+    }
+    log$5(`GameTag: rendering badge for tag=${tag.tag}`);
+    // Compact mode: just the icon with background circle
+    if (compact) {
+        const compactStyle = {
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: '50%',
+            padding: '4px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+            zIndex: 1000,
+            cursor: onClick ? 'pointer' : 'default',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            userSelect: 'none',
+        };
+        return (SP_REACT.createElement("div", { onClick: onClick, style: compactStyle, title: style.label },
+            SP_REACT.createElement(TagIcon, { type: tag.tag, size: 16 })));
+    }
+    // Full mode: badge with icon and text
+    // Note: position is relative (not absolute) - parent handles placement
+    const containerStyle = {
+        position: 'relative',
+        display: 'inline-flex',
+        background: style.background,
+        color: 'white',
+        padding: '8px 16px',
+        borderRadius: '20px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+        cursor: onClick ? 'pointer' : 'default',
+        alignItems: 'center',
+        gap: '8px',
+        userSelect: 'none',
+        transition: 'transform 0.2s ease',
+    };
+    return (SP_REACT.createElement("div", { onClick: onClick, style: containerStyle, title: tag.is_manual ? 'Manual tag - Click to edit' : 'Automatic tag - Click to edit' },
+        SP_REACT.createElement(TagIcon, { type: tag.tag, size: 18 }),
+        SP_REACT.createElement("span", null, style.label),
+        tag.is_manual && (SP_REACT.createElement("span", { style: { fontSize: '12px', opacity: 0.8 } }, "\u270E"))));
+};
+
+/**
+ * TagManager Component
+ * Modal for managing game tags manually
+ */
+// Debug logging helper
+const log$4 = (msg, data) => {
+    const logMsg = `[GameProgressTracker][TagManager] ${msg}`;
+    if (data !== undefined) {
+        console.log(logMsg, data);
+    }
+    else {
+        console.log(logMsg);
+    }
+};
+const TagManager = ({ appid, onClose }) => {
+    const [details, setDetails] = SP_REACT.useState(null);
+    const [loading, setLoading] = SP_REACT.useState(true);
+    const [error, setError] = SP_REACT.useState(null);
+    log$4(`TagManager mounted for appid=${appid}`);
+    SP_REACT.useEffect(() => {
+        log$4(`TagManager useEffect: fetching details for appid=${appid}`);
+        fetchDetails();
+    }, [appid]);
+    const fetchDetails = async () => {
+        try {
+            log$4(`fetchDetails: calling get_game_details for appid=${appid}`);
+            setLoading(true);
+            setError(null);
+            const result = await call('get_game_details', { appid });
+            log$4(`fetchDetails: result for appid=${appid}:`, result);
+            setDetails(result);
+        }
+        catch (err) {
+            const errorMsg = err?.message || 'Failed to load game details';
+            setError(errorMsg);
+            log$4(`fetchDetails: error for appid=${appid}: ${errorMsg}`, err);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const setTag = async (tag) => {
+        try {
+            log$4(`setTag: calling set_manual_tag for appid=${appid}, tag=${tag}`);
+            const result = await call('set_manual_tag', { appid, tag });
+            log$4(`setTag: result for appid=${appid}:`, result);
+            await fetchDetails();
+        }
+        catch (err) {
+            const errorMsg = err?.message || 'Failed to set tag';
+            setError(errorMsg);
+            log$4(`setTag: error for appid=${appid}: ${errorMsg}`, err);
+        }
+    };
+    const resetToAuto = async () => {
+        try {
+            log$4(`resetToAuto: calling reset_to_auto_tag for appid=${appid}`);
+            const result = await call('reset_to_auto_tag', { appid });
+            log$4(`resetToAuto: result for appid=${appid}:`, result);
+            await fetchDetails();
+        }
+        catch (err) {
+            const errorMsg = err?.message || 'Failed to reset tag';
+            setError(errorMsg);
+            log$4(`resetToAuto: error for appid=${appid}: ${errorMsg}`, err);
+        }
+    };
+    const removeTag = async () => {
+        try {
+            log$4(`removeTag: calling remove_tag for appid=${appid}`);
+            const result = await call('remove_tag', { appid });
+            log$4(`removeTag: result for appid=${appid}:`, result);
+            await fetchDetails();
+        }
+        catch (err) {
+            const errorMsg = err?.message || 'Failed to remove tag';
+            setError(errorMsg);
+            log$4(`removeTag: error for appid=${appid}: ${errorMsg}`, err);
+        }
+    };
+    if (loading) {
+        return (SP_REACT.createElement("div", { style: styles.modal },
+            SP_REACT.createElement("div", { style: styles.content },
+                SP_REACT.createElement("div", { style: styles.loading }, "Loading..."))));
+    }
+    if (error || !details || !details.success) {
+        return (SP_REACT.createElement("div", { style: styles.modal },
+            SP_REACT.createElement("div", { style: styles.content },
+                SP_REACT.createElement("div", { style: styles.error }, error || 'Failed to load game details'),
+                SP_REACT.createElement("button", { onClick: onClose, style: styles.button }, "Close"))));
+    }
+    const stats = details.stats;
+    const tag = details.tag;
+    const hltb = details.hltb_data;
+    return (SP_REACT.createElement("div", { style: styles.modal, onClick: onClose },
+        SP_REACT.createElement("div", { style: styles.content, onClick: (e) => e.stopPropagation() },
+            SP_REACT.createElement("h2", { style: styles.title },
+                "Manage Tags: ",
+                stats?.game_name || `Game ${appid}`),
+            SP_REACT.createElement("div", { style: styles.section },
+                SP_REACT.createElement("h3", { style: styles.sectionTitle }, "Game Statistics"),
+                stats && (SP_REACT.createElement(SP_REACT.Fragment, null,
+                    SP_REACT.createElement("div", { style: styles.statRow },
+                        SP_REACT.createElement("span", null, "Playtime:"),
+                        SP_REACT.createElement("span", null,
+                            Math.floor(stats.playtime_minutes / 60),
+                            "h ",
+                            stats.playtime_minutes % 60,
+                            "m")),
+                    SP_REACT.createElement("div", { style: styles.statRow },
+                        SP_REACT.createElement("span", null, "Achievements:"),
+                        SP_REACT.createElement("span", null,
+                            stats.unlocked_achievements,
+                            "/",
+                            stats.total_achievements)))),
+                hltb && (SP_REACT.createElement(SP_REACT.Fragment, null,
+                    SP_REACT.createElement("div", { style: styles.statRow },
+                        SP_REACT.createElement("span", null, "HLTB Match:"),
+                        SP_REACT.createElement("span", null,
+                            hltb.matched_name,
+                            " (",
+                            (hltb.similarity * 100).toFixed(0),
+                            "%)")),
+                    hltb.main_extra && (SP_REACT.createElement("div", { style: styles.statRow },
+                        SP_REACT.createElement("span", null, "Main+Extra:"),
+                        SP_REACT.createElement("span", null,
+                            hltb.main_extra,
+                            "h")))))),
+            SP_REACT.createElement("div", { style: styles.section },
+                SP_REACT.createElement("h3", { style: styles.sectionTitle }, "Current Tag"),
+                SP_REACT.createElement("div", { style: styles.currentTag }, tag?.tag ? (SP_REACT.createElement(SP_REACT.Fragment, null,
+                    SP_REACT.createElement(TagIcon, { type: tag.tag, size: 24 }),
+                    SP_REACT.createElement("span", { style: { color: TAG_ICON_COLORS[tag.tag] } }, tag.tag.replace('_', ' ').toUpperCase()),
+                    SP_REACT.createElement("span", { style: styles.tagType }, tag.is_manual ? '(Manual)' : '(Automatic)'))) : (SP_REACT.createElement("span", { style: styles.noTag }, "No tag assigned")))),
+            SP_REACT.createElement("div", { style: styles.section },
+                SP_REACT.createElement("h3", { style: styles.sectionTitle }, "Set Tag"),
+                SP_REACT.createElement("div", { style: styles.tagButtonGroup },
+                    SP_REACT.createElement("button", { onClick: () => setTag('mastered'), style: { ...styles.tagButton, backgroundColor: TAG_ICON_COLORS.mastered } },
+                        SP_REACT.createElement(TagIcon, { type: "mastered", size: 20 }),
+                        SP_REACT.createElement("span", null, "Mastered")),
+                    SP_REACT.createElement("button", { onClick: () => setTag('completed'), style: { ...styles.tagButton, backgroundColor: TAG_ICON_COLORS.completed } },
+                        SP_REACT.createElement(TagIcon, { type: "completed", size: 20 }),
+                        SP_REACT.createElement("span", null, "Completed")),
+                    SP_REACT.createElement("button", { onClick: () => setTag('in_progress'), style: { ...styles.tagButton, backgroundColor: TAG_ICON_COLORS.in_progress } },
+                        SP_REACT.createElement(TagIcon, { type: "in_progress", size: 20 }),
+                        SP_REACT.createElement("span", null, "In Progress"))),
+                SP_REACT.createElement("div", { style: styles.buttonGroup },
+                    SP_REACT.createElement("button", { onClick: resetToAuto, style: styles.secondaryButton }, "Reset to Automatic"),
+                    SP_REACT.createElement("button", { onClick: removeTag, style: styles.secondaryButton }, "Remove Tag"))),
+            SP_REACT.createElement("button", { onClick: onClose, style: styles.closeButton }, "Close"))));
+};
+const styles = {
+    modal: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+    },
+    content: {
+        backgroundColor: '#1a1a1a',
+        borderRadius: '8px',
+        padding: '24px',
+        maxWidth: '600px',
+        width: '90%',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        color: 'white',
+    },
+    title: {
+        margin: '0 0 20px 0',
+        fontSize: '20px',
+        fontWeight: 'bold',
+    },
+    section: {
+        marginBottom: '20px',
+        paddingBottom: '20px',
+        borderBottom: '1px solid #333',
+    },
+    sectionTitle: {
+        margin: '0 0 12px 0',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        color: '#aaa',
+    },
+    statRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '8px 0',
+        fontSize: '14px',
+    },
+    currentTag: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '12px',
+        backgroundColor: '#252525',
+        borderRadius: '6px',
+        fontSize: '16px',
+        fontWeight: 'bold',
+    },
+    tagType: {
+        fontSize: '12px',
+        color: '#888',
+        fontWeight: 'normal',
+    },
+    noTag: {
+        color: '#888',
+        fontStyle: 'italic',
+    },
+    buttonGroup: {
+        display: 'flex',
+        gap: '8px',
+        marginBottom: '8px',
+        flexWrap: 'wrap',
+    },
+    tagButtonGroup: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        marginBottom: '12px',
+    },
+    tagButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        padding: '14px',
+        border: 'none',
+        borderRadius: '6px',
+        color: 'white',
+        fontSize: '15px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        transition: 'opacity 0.2s',
+    },
+    secondaryButton: {
+        flex: 1,
+        padding: '10px',
+        backgroundColor: '#444',
+        border: 'none',
+        borderRadius: '4px',
+        color: 'white',
+        fontSize: '13px',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s',
+    },
+    closeButton: {
+        width: '100%',
+        padding: '12px',
+        backgroundColor: '#555',
+        border: 'none',
+        borderRadius: '4px',
+        color: 'white',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        marginTop: '8px',
+    },
+    loading: {
+        textAlign: 'center',
+        padding: '40px',
+        fontSize: '16px',
+    },
+    error: {
+        textAlign: 'center',
+        padding: '20px',
+        fontSize: '14px',
+        color: '#ff6b6b',
+    },
+    button: {
+        padding: '12px 24px',
+        backgroundColor: '#667eea',
+        border: 'none',
+        borderRadius: '4px',
+        color: 'white',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        marginTop: '12px',
+    },
+};
+
+/**
  * React hook for managing game tags
  */
 // Debug logging helper
-const log$1 = (msg, data) => {
+const log$3 = (msg, data) => {
     const logMsg = `[GameProgressTracker][useGameTag] ${msg}`;
     if (data !== undefined) {
         console.log(logMsg, data);
@@ -1107,22 +1105,22 @@ function useGameTag(appid) {
     const [loading, setLoading] = SP_REACT.useState(true);
     const [error, setError] = SP_REACT.useState(null);
     SP_REACT.useEffect(() => {
-        log$1(`useEffect triggered for appid=${appid}`);
+        log$3(`useEffect triggered for appid=${appid}`);
         fetchTag();
     }, [appid]);
     const fetchTag = async () => {
         try {
-            log$1(`fetchTag: calling get_game_tag for appid=${appid}`);
+            log$3(`fetchTag: calling get_game_tag for appid=${appid}`);
             setLoading(true);
             setError(null);
             const result = await call('get_game_tag', { appid });
-            log$1(`fetchTag: result for appid=${appid}:`, result);
+            log$3(`fetchTag: result for appid=${appid}:`, result);
             setTag(result.tag);
         }
         catch (err) {
             const errorMsg = err?.message || 'Failed to fetch tag';
             setError(errorMsg);
-            log$1(`fetchTag: error for appid=${appid}: ${errorMsg}`, err);
+            log$3(`fetchTag: error for appid=${appid}: ${errorMsg}`, err);
         }
         finally {
             setLoading(false);
@@ -1188,8 +1186,182 @@ function useGameTag(appid) {
 }
 
 /**
+ * GameTagBadge Component
+ * Wrapper component for displaying game tag on library app page
+ * Designed to be injected via safe route patching
+ */
+// Debug logging helper
+const log$2 = (msg, data) => {
+    const logMsg = `[GameProgressTracker][GameTagBadge] ${msg}`;
+    if (data !== undefined) {
+        console.log(logMsg, data);
+    }
+    else {
+        console.log(logMsg);
+    }
+};
+/**
+ * Placeholder button when no tag exists
+ */
+const AddTagButton = ({ onClick }) => {
+    const buttonStyle = {
+        position: 'relative',
+        display: 'inline-flex',
+        background: 'rgba(50, 50, 50, 0.9)',
+        color: '#aaa',
+        padding: '8px 16px',
+        borderRadius: '20px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+        cursor: 'pointer',
+        alignItems: 'center',
+        gap: '8px',
+        userSelect: 'none',
+        border: '1px dashed #666',
+        marginTop: '10px',
+    };
+    return (SP_REACT.createElement("div", { onClick: onClick, style: buttonStyle, title: "Click to add tag" },
+        SP_REACT.createElement("span", { style: { fontSize: '16px' } }, "+"),
+        SP_REACT.createElement("span", null, "Add Tag")));
+};
+/**
+ * GameTagBadge - Main component injected into library app page
+ * Shows tag badge or "Add Tag" button, with TagManager modal
+ */
+const GameTagBadge = ({ appid }) => {
+    const { tag, loading, error, refetch } = useGameTag(appid);
+    const [showManager, setShowManager] = SP_REACT.useState(false);
+    SP_REACT.useEffect(() => {
+        log$2(`Mounted: appid=${appid}`);
+        return () => {
+            log$2(`Unmounted: appid=${appid}`);
+        };
+    }, [appid]);
+    SP_REACT.useEffect(() => {
+        log$2(`State update: appid=${appid}, loading=${loading}, tag=`, tag);
+        if (error) {
+            log$2(`Error: ${error}`);
+        }
+    }, [appid, tag, loading, error]);
+    if (loading) {
+        log$2(`Still loading for appid=${appid}`);
+        return null;
+    }
+    log$2(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}`);
+    const handleClick = () => {
+        log$2(`Tag button clicked for appid=${appid}`);
+        setShowManager(true);
+    };
+    const handleClose = () => {
+        log$2(`TagManager closed for appid=${appid}`);
+        setShowManager(false);
+        refetch();
+    };
+    // Container style - positions the badge in the header area
+    const containerStyle = {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        padding: '0 16px',
+    };
+    return (SP_REACT.createElement("div", { style: containerStyle },
+        tag && tag.tag ? (SP_REACT.createElement("div", { style: { position: 'relative', display: 'inline-flex', marginTop: '10px' } },
+            SP_REACT.createElement(GameTag, { tag: tag, onClick: handleClick }))) : (SP_REACT.createElement(AddTagButton, { onClick: handleClick })),
+        showManager && (SP_REACT.createElement(TagManager, { appid: appid, onClose: handleClose }))));
+};
+
+/**
+ * Library App Route Patching
+ * Based on ProtonDB Badges plugin implementation
+ * Uses proper Decky UI patching utilities for safety
+ */
+// Debug logging helper
+const log$1 = (msg, data) => {
+    const logMsg = `[GameProgressTracker][patchLibraryApp] ${msg}`;
+    if (data !== undefined) {
+        console.log(logMsg, data);
+    }
+    else {
+        console.log(logMsg);
+    }
+};
+/**
+ * Extract appid from the current route/URL
+ */
+function getAppIdFromUrl() {
+    try {
+        // Try to get appid from window location
+        const match = window.location.pathname.match(/\/library\/app\/(\d+)/);
+        if (match) {
+            return match[1];
+        }
+        // Fallback: try to find it in the URL hash or other places
+        const hashMatch = window.location.hash.match(/\/library\/app\/(\d+)/);
+        if (hashMatch) {
+            return hashMatch[1];
+        }
+        return null;
+    }
+    catch (e) {
+        log$1('Error getting appid from URL:', e);
+        return null;
+    }
+}
+/**
+ * Patch the library app page to inject our tag badge
+ * Following the ProtonDB Badges pattern for safety
+ */
+function patchLibraryApp() {
+    log$1('Setting up library app patch');
+    return routerHook.addPatch('/library/app/:appid', (tree) => {
+        log$1('Route patch callback triggered');
+        try {
+            // Find the route props with renderFunc (same pattern as ProtonDB)
+            const routeProps = DFL.findInReactTree(tree, (x) => x?.renderFunc);
+            if (routeProps) {
+                log$1('Found routeProps with renderFunc');
+                const patchHandler = DFL.createReactTreePatcher([
+                    (tree) => DFL.findInReactTree(tree, (x) => x?.props?.children?.props?.overview)?.props?.children
+                ], (_, ret) => {
+                    // Find the inner container where we'll inject our badge
+                    const container = DFL.findInReactTree(ret, (x) => Array.isArray(x?.props?.children) &&
+                        x?.props?.className?.includes(DFL.appDetailsClasses.InnerContainer));
+                    if (typeof container !== 'object') {
+                        log$1('Container not found, returning original');
+                        return ret;
+                    }
+                    // Get appid from URL since we're inside the render
+                    const appid = getAppIdFromUrl();
+                    if (appid) {
+                        log$1(`Injecting GameTagBadge for appid=${appid}`);
+                        // Inject our badge component at position 1 (after the first child)
+                        container.props.children.splice(1, 0, SP_REACT.createElement(GameTagBadge, { key: "game-progress-tag", appid: appid }));
+                    }
+                    else {
+                        log$1('Could not determine appid');
+                    }
+                    return ret;
+                });
+                DFL.afterPatch(routeProps, "renderFunc", patchHandler);
+                log$1('Patch handler attached to renderFunc');
+            }
+            else {
+                log$1('routeProps with renderFunc not found');
+            }
+        }
+        catch (error) {
+            log$1('Error in route patch:', error);
+        }
+        return tree;
+    });
+}
+
+/**
  * Game Progress Tracker - Main Plugin Entry
  * Decky Loader plugin for automatic game tagging
+ *
+ * Uses safe route patching pattern based on ProtonDB Badges plugin
  */
 // Debug logging helper
 const log = (msg, data) => {
@@ -1202,94 +1374,20 @@ const log = (msg, data) => {
     }
 };
 /**
- * Extract appid from route path
- */
-function extractAppId(path) {
-    const match = path.match(/\/library\/app\/(\d+)/);
-    log(`extractAppId: path="${path}", match=${match ? match[1] : 'null'}`);
-    return match ? match[1] : null;
-}
-/**
- * Placeholder button when no tag exists
- */
-const AddTagButton = ({ onClick }) => {
-    const buttonStyle = {
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        background: 'rgba(50, 50, 50, 0.9)',
-        color: '#aaa',
-        padding: '8px 16px',
-        borderRadius: '20px',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-        zIndex: 1000,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        userSelect: 'none',
-        border: '1px dashed #666',
-    };
-    return (SP_REACT.createElement("div", { onClick: onClick, style: buttonStyle, title: "Click to add tag" },
-        SP_REACT.createElement("span", { style: { fontSize: '16px' } }, "+"),
-        SP_REACT.createElement("span", null, "Add Tag")));
-};
-/**
- * Game Page Overlay Component
- * Displays tag badge and manages tag editor
- */
-const GamePageOverlay = ({ appid }) => {
-    const { tag, loading, error, refetch } = useGameTag(appid);
-    const [showManager, setShowManager] = SP_REACT.useState(false);
-    SP_REACT.useEffect(() => {
-        log(`GamePageOverlay: appid=${appid}, loading=${loading}, tag=`, tag);
-        if (error) {
-            log(`GamePageOverlay: error=${error}`);
-        }
-    }, [appid, tag, loading, error]);
-    // Show overlay even if no tag (allows clicking to open TagManager)
-    if (loading) {
-        log(`GamePageOverlay: still loading for appid=${appid}`);
-        return null;
-    }
-    log(`GamePageOverlay: rendering for appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}`);
-    const handleClick = () => {
-        log(`Tag button clicked for appid=${appid}`);
-        setShowManager(true);
-    };
-    const handleClose = () => {
-        log(`TagManager closed for appid=${appid}`);
-        setShowManager(false);
-        // Refresh tag after closing manager (in case it was changed)
-        refetch();
-    };
-    return (SP_REACT.createElement(SP_REACT.Fragment, null,
-        tag && tag.tag ? (SP_REACT.createElement(GameTag, { tag: tag, onClick: handleClick })) : (SP_REACT.createElement(AddTagButton, { onClick: handleClick })),
-        showManager && (SP_REACT.createElement(TagManager, { appid: appid, onClose: handleClose }))));
-};
-/**
  * Main Plugin Definition
  */
 var index = definePlugin(() => {
     log('=== Plugin initializing ===');
-    // Patch the game library page to inject our tag component
-    // Note: route param must be lowercase :appid (not :appId)
-    log('Adding route patch for /library/app/:appid');
-    const gamePagePatch = routerHook.addPatch('/library/app/:appid', (props) => {
-        log(`Route patch called with path: ${props.path}`);
-        const appid = extractAppId(props.path);
-        if (appid) {
-            log(`Route patch: injecting GamePageOverlay for appid=${appid}`);
-            return (SP_REACT.createElement(SP_REACT.Fragment, null,
-                props.children,
-                SP_REACT.createElement(GamePageOverlay, { appid: appid })));
-        }
-        log(`Route patch: no appid extracted, returning children only`);
-        return props.children;
-    });
-    log('Route patch added');
+    // Patch the game library page using the safe ProtonDB-style approach
+    log('Setting up library app patch');
+    let libraryPatch = null;
+    try {
+        libraryPatch = patchLibraryApp();
+        log('Library app patch registered successfully');
+    }
+    catch (error) {
+        log('Failed to register library app patch:', error);
+    }
     return {
         name: 'Game Progress Tracker',
         titleView: SP_REACT.createElement("div", { className: DFL.staticClasses.Title }, "Game Progress Tracker"),
@@ -1297,8 +1395,17 @@ var index = definePlugin(() => {
         icon: (SP_REACT.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", width: "24", height: "24" },
             SP_REACT.createElement("path", { d: "M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5zm0 18c-3.87 0-7-3.13-7-7V8.3l7-3.11 7 3.11V13c0 3.87-3.13 7-7 7zm-1-5h2v2h-2v-2zm0-8h2v6h-2V7z" }))),
         onDismount() {
+            log('=== Plugin dismounting ===');
             // Clean up patches when plugin is unloaded
-            routerHook.removePatch('/library/app/:appid', gamePagePatch);
+            if (libraryPatch) {
+                try {
+                    routerHook.removePatch('/library/app/:appid', libraryPatch);
+                    log('Library app patch removed successfully');
+                }
+                catch (error) {
+                    log('Error removing library app patch:', error);
+                }
+            }
         }
     };
 });

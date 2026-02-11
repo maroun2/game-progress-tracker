@@ -86,10 +86,10 @@ export const GameTag: VFC<GameTagProps> = ({ tag, onClick, compact = false }) =>
   }
 
   // Full mode: badge with icon and text
+  // Note: position is relative (not absolute) - parent handles placement
   const containerStyle: CSSProperties = {
-    position: 'absolute',
-    top: '20px',
-    right: '20px',
+    position: 'relative',
+    display: 'inline-flex',
     background: style.background,
     color: 'white',
     padding: '8px 16px',
@@ -97,9 +97,7 @@ export const GameTag: VFC<GameTagProps> = ({ tag, onClick, compact = false }) =>
     fontSize: '14px',
     fontWeight: 'bold',
     boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-    zIndex: 1000,
     cursor: onClick ? 'pointer' : 'default',
-    display: 'flex',
     alignItems: 'center',
     gap: '8px',
     userSelect: 'none',
