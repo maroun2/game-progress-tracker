@@ -257,7 +257,7 @@ export const Settings: FC = () => {
     completed: 'Completed (Beat Main Story)',
     in_progress: 'In Progress',
     backlog: 'Backlog (Not Started)',
-    mastered: 'Mastered (100% Achievements)',
+    mastered: 'Mastered (85%+ Achievements)',
   };
 
   const totalGames = stats ? stats.total : 0;
@@ -401,7 +401,7 @@ export const Settings: FC = () => {
               <div style={styles.tagRulesInfo}>
                 <div style={styles.tagRule}>
                   <TagIcon type="mastered" size={16} />
-                  <strong>Mastered:</strong> 100% achievements unlocked
+                  <strong>Mastered:</strong> 85%+ achievements unlocked
                 </div>
                 <div style={styles.tagRule}>
                   <TagIcon type="completed" size={16} />

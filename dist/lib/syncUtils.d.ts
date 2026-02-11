@@ -35,4 +35,12 @@ export declare const getPlaytimeData: (appids: string[]) => Promise<Record<strin
  * Sync library with frontend data (playtime + achievements from Steam API)
  * This is the main sync function that should be used instead of backend-only sync
  */
+/**
+ * Sync a single game with frontend data (playtime + achievements)
+ * Called when viewing a game's detail page to get latest data
+ */
+export declare const syncSingleGameWithFrontendData: (appid: string) => Promise<{
+    success: boolean;
+    error?: string;
+}>;
 export declare const syncLibraryWithFrontendData: () => Promise<SyncResult>;

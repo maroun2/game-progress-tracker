@@ -181,6 +181,42 @@ export const getPlaytimeData = async (appids: string[]): Promise<Record<string, 
  * Sync library with frontend data (playtime + achievements from Steam API)
  * This is the main sync function that should be used instead of backend-only sync
  */
+/**
+ * Sync a single game with frontend data (playtime + achievements)
+ * Called when viewing a game's detail page to get latest data
+ */
+export const syncSingleGameWithFrontendData = async (appid: string): Promise<{ success: boolean; error?: string }> => {
+  log(`Syncing single game: ${appid}`);
+
+  try {
+    // Get playtime from Steam frontend API
+    const playtimeData = await getPlaytimeData([appid]);
+    const playtime = playtimeData[appid] || 0;
+
+    // Get achievements from Steam frontend API
+    const achievementData = await getAchievementData([appid]);
+    const achievements = achievementData[appid] || { total: 0, unlocked: 0, percentage: 0, all_unlocked: false };
+
+    log(`Game ${appid}: playtime=${playtime}min, achievements=${achievements.unlocked}/${achievements.total} (${achievements.percentage.toFixed(1)}%)`);
+
+    // Send to backend for processing
+    const result = await call<[{ playtime_data: Record<string, number>; achievement_data: Record<string, AchievementData> }], SyncResult>(
+      'sync_library_with_playtime',
+      {
+        playtime_data: { [appid]: playtime },
+        achievement_data: { [appid]: achievements }
+      }
+    );
+
+    log(`Single game sync complete: success=${result.success}`);
+    return { success: result.success, error: result.error };
+
+  } catch (e: any) {
+    log(`Single game sync failed: ${e?.message}`);
+    return { success: false, error: e?.message || 'Unknown error' };
+  }
+};
+
 export const syncLibraryWithFrontendData = async (): Promise<SyncResult> => {
   log('Starting sync with frontend data...');
 

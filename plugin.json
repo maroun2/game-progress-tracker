@@ -1,7 +1,7 @@
 {
   "name": "Game Progress Tracker",
   "author": "Maron",
-  "version": "1.1.24",
+  "version": "1.1.25",
   "api_version": 1,
   "flags": ["_root"],
   "publish": {

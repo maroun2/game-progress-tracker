@@ -130,9 +130,9 @@ class Plugin:
         settings = await self.db.get_all_settings()
         in_progress_threshold = settings.get('in_progress_threshold', 30)  # Default 30 min
 
-        # Priority 1: Mastered (>=90% achievements)
+        # Priority 1: Mastered (>=85% achievements)
         achievement_percentage = stats.get('achievement_percentage', 0)
-        if achievement_percentage >= 90:
+        if achievement_percentage >= 85:
             return "mastered"
 
         # Priority 2: Completed (beat main story - playtime >= main_story)

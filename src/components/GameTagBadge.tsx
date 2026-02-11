@@ -10,6 +10,7 @@ import { appDetailsClasses, appDetailsHeaderClasses } from '@decky/ui';
 import { GameTag } from './GameTag';
 import { TagManager } from './TagManager';
 import { useGameTag } from '../hooks/useGameTag';
+import { syncSingleGameWithFrontendData } from '../lib/syncUtils';
 
 // Debug logging helper
 const log = (msg: string, data?: any) => {
@@ -101,6 +102,24 @@ export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
 
   useEffect(() => {
     log(`Mounted: appid=${appid}`);
+
+    // Sync this game's data when detail page is viewed
+    // This ensures we have the latest playtime and achievement data
+    (async () => {
+      try {
+        log(`Syncing game data for appid=${appid}...`);
+        const result = await syncSingleGameWithFrontendData(appid);
+        if (result.success) {
+          log(`Game ${appid} synced successfully, refreshing tag...`);
+          refetch();
+        } else {
+          log(`Game ${appid} sync failed: ${result.error}`);
+        }
+      } catch (e) {
+        log(`Error syncing game ${appid}:`, e);
+      }
+    })();
+
     return () => {
       log(`Unmounted: appid=${appid}`);
     };

@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.24","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.25","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -199,6 +199,33 @@ const getPlaytimeData = async (appids) => {
  * Sync library with frontend data (playtime + achievements from Steam API)
  * This is the main sync function that should be used instead of backend-only sync
  */
+/**
+ * Sync a single game with frontend data (playtime + achievements)
+ * Called when viewing a game's detail page to get latest data
+ */
+const syncSingleGameWithFrontendData = async (appid) => {
+    log$6(`Syncing single game: ${appid}`);
+    try {
+        // Get playtime from Steam frontend API
+        const playtimeData = await getPlaytimeData([appid]);
+        const playtime = playtimeData[appid] || 0;
+        // Get achievements from Steam frontend API
+        const achievementData = await getAchievementData([appid]);
+        const achievements = achievementData[appid] || { total: 0, unlocked: 0, percentage: 0, all_unlocked: false };
+        log$6(`Game ${appid}: playtime=${playtime}min, achievements=${achievements.unlocked}/${achievements.total} (${achievements.percentage.toFixed(1)}%)`);
+        // Send to backend for processing
+        const result = await call('sync_library_with_playtime', {
+            playtime_data: { [appid]: playtime },
+            achievement_data: { [appid]: achievements }
+        });
+        log$6(`Single game sync complete: success=${result.success}`);
+        return { success: result.success, error: result.error };
+    }
+    catch (e) {
+        log$6(`Single game sync failed: ${e?.message}`);
+        return { success: false, error: e?.message || 'Unknown error' };
+    }
+};
 const syncLibraryWithFrontendData = async () => {
     log$6('Starting sync with frontend data...');
     try {
@@ -374,7 +401,7 @@ const Settings = () => {
     };
     const syncLibrary = async () => {
         await logToBackend('info', '========================================');
-        await logToBackend('info', `syncLibrary button clicked - v${"1.1.24"}`);
+        await logToBackend('info', `syncLibrary button clicked - v${"1.1.25"}`);
         await logToBackend('info', '========================================');
         try {
             setSyncing(true);
@@ -464,7 +491,7 @@ const Settings = () => {
         completed: 'Completed (Beat Main Story)',
         in_progress: 'In Progress',
         backlog: 'Backlog (Not Started)',
-        mastered: 'Mastered (100% Achievements)',
+        mastered: 'Mastered (85%+ Achievements)',
     };
     const totalGames = stats ? stats.total : 0;
     // Get count for each category including backlog from stats
@@ -527,7 +554,7 @@ const Settings = () => {
                         SP_REACT.createElement("div", { style: styles$1.tagRule },
                             SP_REACT.createElement(TagIcon, { type: "mastered", size: 16 }),
                             SP_REACT.createElement("strong", null, "Mastered:"),
-                            " 100% achievements unlocked"),
+                            " 85%+ achievements unlocked"),
                         SP_REACT.createElement("div", { style: styles$1.tagRule },
                             SP_REACT.createElement(TagIcon, { type: "completed", size: 16 }),
                             SP_REACT.createElement("strong", null, "Completed:"),
@@ -564,7 +591,7 @@ const Settings = () => {
             SP_REACT.createElement("div", { style: styles$1.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.1.24"),
+                    "1.1.25"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
                 SP_REACT.createElement("p", { style: styles$1.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };
@@ -1392,6 +1419,24 @@ const GameTagBadge = ({ appid }) => {
     const ref = SP_REACT.useRef(null);
     SP_REACT.useEffect(() => {
         log$2(`Mounted: appid=${appid}`);
+        // Sync this game's data when detail page is viewed
+        // This ensures we have the latest playtime and achievement data
+        (async () => {
+            try {
+                log$2(`Syncing game data for appid=${appid}...`);
+                const result = await syncSingleGameWithFrontendData(appid);
+                if (result.success) {
+                    log$2(`Game ${appid} synced successfully, refreshing tag...`);
+                    refetch();
+                }
+                else {
+                    log$2(`Game ${appid} sync failed: ${result.error}`);
+                }
+            }
+            catch (e) {
+                log$2(`Error syncing game ${appid}:`, e);
+            }
+        })();
         return () => {
             log$2(`Unmounted: appid=${appid}`);
         };
