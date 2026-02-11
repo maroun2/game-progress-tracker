@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.19","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.20","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -91,6 +91,59 @@ const logToBackend = async (level, message) => {
     catch (e) {
         // Silently fail if backend logging fails
     }
+};
+/**
+ * Get achievement data for a list of appids from Steam's frontend API
+ * Uses window.appAchievementProgressCache which is Steam's internal achievement cache
+ */
+const getAchievementData = async (appids) => {
+    await logToBackend('info', `getAchievementData called with ${appids.length} appids`);
+    const achievementMap = {};
+    // Access Steam's global achievement progress cache
+    const achievementCache = window.appAchievementProgressCache;
+    await logToBackend('info', `appAchievementProgressCache available: ${!!achievementCache}, type: ${typeof achievementCache}`);
+    if (!achievementCache) {
+        await logToBackend('error', 'appAchievementProgressCache not available - cannot get achievements!');
+        return achievementMap;
+    }
+    // Check if GetAchievementProgress method exists
+    await logToBackend('info', `GetAchievementProgress exists: ${typeof achievementCache.GetAchievementProgress}`);
+    let successCount = 0;
+    let failCount = 0;
+    let withAchievements = 0;
+    const sampleLogs = [];
+    for (const appid of appids) {
+        try {
+            const progress = achievementCache.GetAchievementProgress(parseInt(appid));
+            if (progress) {
+                // Progress object typically has nAchieved (unlocked) and nTotal (total)
+                const total = progress.nTotal || progress.total || 0;
+                const unlocked = progress.nAchieved || progress.unlocked || 0;
+                achievementMap[appid] = { total, unlocked };
+                successCount++;
+                if (total > 0)
+                    withAchievements++;
+                if (sampleLogs.length < 5) {
+                    sampleLogs.push(`appid ${appid}: ${unlocked}/${total} achievements`);
+                }
+            }
+            else {
+                // No achievement data - game might not have achievements
+                achievementMap[appid] = { total: 0, unlocked: 0 };
+                failCount++;
+            }
+        }
+        catch (e) {
+            achievementMap[appid] = { total: 0, unlocked: 0 };
+            failCount++;
+        }
+    }
+    // Log results after the loop
+    for (const log of sampleLogs) {
+        await logToBackend('info', `Achievement sample - ${log}`);
+    }
+    await logToBackend('info', `getAchievementData results: success=${successCount}, noData=${failCount}, withAchievements=${withAchievements}`);
+    return achievementMap;
 };
 /**
  * Get playtime data for a list of appids from Steam's frontend API
@@ -279,7 +332,7 @@ const Settings = () => {
     };
     const syncLibrary = async () => {
         await logToBackend('info', '========================================');
-        await logToBackend('info', `syncLibrary button clicked - v${"1.1.19"}`);
+        await logToBackend('info', `syncLibrary button clicked - v${"1.1.20"}`);
         await logToBackend('info', '========================================');
         try {
             setSyncing(true);
@@ -306,11 +359,20 @@ const Settings = () => {
             // Log sample of playtime data
             const sampleEntries = Object.entries(playtimeData).slice(0, 5);
             await logToBackend('info', `Sample playtime data: ${JSON.stringify(sampleEntries)}`);
-            // Step 3: Sync with playtime data
+            // Step 2.5: Get achievement data from Steam frontend API
+            await logToBackend('info', 'Step 2.5: Getting achievement data from Steam frontend API...');
+            setMessage(`Getting achievement data for ${appids.length} games...`);
+            const achievementData = await getAchievementData(appids);
+            const gamesWithAchievements = Object.values(achievementData).filter(v => v.total > 0).length;
+            await logToBackend('info', `Step 2.5 complete: Got achievements for ${gamesWithAchievements}/${appids.length} games`);
+            // Log sample of achievement data
+            const achievementSample = Object.entries(achievementData).slice(0, 5);
+            await logToBackend('info', `Sample achievement data: ${JSON.stringify(achievementSample)}`);
+            // Step 3: Sync with playtime and achievement data
             await logToBackend('info', 'Step 3: Calling backend sync_library_with_playtime...');
-            await logToBackend('info', `Sending ${Object.keys(playtimeData).length} playtime entries to backend`);
+            await logToBackend('info', `Sending ${Object.keys(playtimeData).length} playtime entries and ${Object.keys(achievementData).length} achievement entries to backend`);
             setMessage('Syncing library... This may take several minutes.');
-            const result = await call('sync_library_with_playtime', { playtime_data: playtimeData });
+            const result = await call('sync_library_with_playtime', { playtime_data: playtimeData, achievement_data: achievementData });
             await logToBackend('info', `Step 3 complete - sync result: ${JSON.stringify(result)}`);
             if (result.success) {
                 showMessage(`Sync complete! ${result.synced}/${result.total} games synced. ` +
@@ -460,7 +522,7 @@ const Settings = () => {
             SP_REACT.createElement("div", { style: styles$1.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.1.19"),
+                    "1.1.20"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
                 SP_REACT.createElement("p", { style: styles$1.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };

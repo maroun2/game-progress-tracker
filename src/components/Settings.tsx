@@ -22,6 +22,74 @@ const logToBackend = async (level: 'info' | 'error' | 'warn', message: string) =
 };
 
 /**
+ * Achievement data structure
+ */
+interface AchievementData {
+  total: number;
+  unlocked: number;
+}
+
+/**
+ * Get achievement data for a list of appids from Steam's frontend API
+ * Uses window.appAchievementProgressCache which is Steam's internal achievement cache
+ */
+const getAchievementData = async (appids: string[]): Promise<Record<string, AchievementData>> => {
+  await logToBackend('info', `getAchievementData called with ${appids.length} appids`);
+  const achievementMap: Record<string, AchievementData> = {};
+
+  // Access Steam's global achievement progress cache
+  const achievementCache = (window as any).appAchievementProgressCache;
+  await logToBackend('info', `appAchievementProgressCache available: ${!!achievementCache}, type: ${typeof achievementCache}`);
+
+  if (!achievementCache) {
+    await logToBackend('error', 'appAchievementProgressCache not available - cannot get achievements!');
+    return achievementMap;
+  }
+
+  // Check if GetAchievementProgress method exists
+  await logToBackend('info', `GetAchievementProgress exists: ${typeof achievementCache.GetAchievementProgress}`);
+
+  let successCount = 0;
+  let failCount = 0;
+  let withAchievements = 0;
+  const sampleLogs: string[] = [];
+
+  for (const appid of appids) {
+    try {
+      const progress = achievementCache.GetAchievementProgress(parseInt(appid));
+      if (progress) {
+        // Progress object typically has nAchieved (unlocked) and nTotal (total)
+        const total = progress.nTotal || progress.total || 0;
+        const unlocked = progress.nAchieved || progress.unlocked || 0;
+
+        achievementMap[appid] = { total, unlocked };
+        successCount++;
+        if (total > 0) withAchievements++;
+
+        if (sampleLogs.length < 5) {
+          sampleLogs.push(`appid ${appid}: ${unlocked}/${total} achievements`);
+        }
+      } else {
+        // No achievement data - game might not have achievements
+        achievementMap[appid] = { total: 0, unlocked: 0 };
+        failCount++;
+      }
+    } catch (e) {
+      achievementMap[appid] = { total: 0, unlocked: 0 };
+      failCount++;
+    }
+  }
+
+  // Log results after the loop
+  for (const log of sampleLogs) {
+    await logToBackend('info', `Achievement sample - ${log}`);
+  }
+
+  await logToBackend('info', `getAchievementData results: success=${successCount}, noData=${failCount}, withAchievements=${withAchievements}`);
+  return achievementMap;
+};
+
+/**
  * Get playtime data for a list of appids from Steam's frontend API
  * Uses window.appStore which is Steam's internal game data cache
  */
@@ -254,13 +322,24 @@ export const Settings: FC = () => {
       const sampleEntries = Object.entries(playtimeData).slice(0, 5);
       await logToBackend('info', `Sample playtime data: ${JSON.stringify(sampleEntries)}`);
 
-      // Step 3: Sync with playtime data
+      // Step 2.5: Get achievement data from Steam frontend API
+      await logToBackend('info', 'Step 2.5: Getting achievement data from Steam frontend API...');
+      setMessage(`Getting achievement data for ${appids.length} games...`);
+      const achievementData = await getAchievementData(appids);
+      const gamesWithAchievements = Object.values(achievementData).filter(v => v.total > 0).length;
+      await logToBackend('info', `Step 2.5 complete: Got achievements for ${gamesWithAchievements}/${appids.length} games`);
+
+      // Log sample of achievement data
+      const achievementSample = Object.entries(achievementData).slice(0, 5);
+      await logToBackend('info', `Sample achievement data: ${JSON.stringify(achievementSample)}`);
+
+      // Step 3: Sync with playtime and achievement data
       await logToBackend('info', 'Step 3: Calling backend sync_library_with_playtime...');
-      await logToBackend('info', `Sending ${Object.keys(playtimeData).length} playtime entries to backend`);
+      await logToBackend('info', `Sending ${Object.keys(playtimeData).length} playtime entries and ${Object.keys(achievementData).length} achievement entries to backend`);
       setMessage('Syncing library... This may take several minutes.');
-      const result = await call<[{ playtime_data: Record<string, number> }], SyncResult>(
+      const result = await call<[{ playtime_data: Record<string, number>; achievement_data: Record<string, AchievementData> }], SyncResult>(
         'sync_library_with_playtime',
-        { playtime_data: playtimeData }
+        { playtime_data: playtimeData, achievement_data: achievementData }
       );
       await logToBackend('info', `Step 3 complete - sync result: ${JSON.stringify(result)}`);
 

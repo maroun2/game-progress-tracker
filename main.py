@@ -530,11 +530,18 @@ class Plugin:
             logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
-    async def sync_library_with_playtime(self, playtime_data: Dict[str, int]) -> Dict[str, Any]:
-        """Sync library using playtime data provided by frontend"""
+    async def sync_library_with_playtime(self, playtime_data: Dict[str, int], achievement_data: Dict[str, Dict[str, int]] = None) -> Dict[str, Any]:
+        """Sync library using playtime and achievement data provided by frontend"""
         logger.info("=== sync_library_with_playtime called ===")
         logger.info(f"Received playtime_data type: {type(playtime_data)}")
         logger.info(f"Received playtime_data: {str(playtime_data)[:500]}")
+        logger.info(f"Received achievement_data type: {type(achievement_data)}")
+        if achievement_data:
+            logger.info(f"Received achievement_data: {str(achievement_data)[:500]}")
+
+        # Initialize achievement_data if not provided (backwards compatibility)
+        if achievement_data is None:
+            achievement_data = {}
 
         # Handle case where playtime_data might be nested or wrong type
         if isinstance(playtime_data, dict):
@@ -549,6 +556,15 @@ class Plugin:
                 logger.error(f"Error counting non-zero playtime: {e}")
         else:
             logger.error(f"playtime_data is not a dict! Type: {type(playtime_data)}")
+
+        # Log achievement data stats
+        if isinstance(achievement_data, dict):
+            logger.info(f"Received achievement_data keys count: {len(achievement_data)}")
+            try:
+                with_achievements = sum(1 for v in achievement_data.values() if isinstance(v, dict) and v.get('total', 0) > 0)
+                logger.info(f"Games with achievements > 0: {with_achievements}/{len(achievement_data)}")
+            except Exception as e:
+                logger.error(f"Error counting achievements: {e}")
 
         try:
             logger.info(f"=== Starting sync with {len(playtime_data)} playtime entries ===")
@@ -589,10 +605,15 @@ class Plugin:
                     logger.warning(f"Unexpected playtime type for {appid}: {type(raw_playtime)} = {raw_playtime}")
                     playtime_minutes = 0
 
-                logger.info(f"[{i+1}/{total}] Syncing: {game_name} ({appid}), playtime={playtime_minutes}")
+                # Get achievement data from frontend
+                game_achievements = achievement_data.get(appid, {})
+                total_achievements = game_achievements.get('total', 0) if isinstance(game_achievements, dict) else 0
+                unlocked_achievements = game_achievements.get('unlocked', 0) if isinstance(game_achievements, dict) else 0
+
+                logger.info(f"[{i+1}/{total}] Syncing: {game_name} ({appid}), playtime={playtime_minutes}, achievements={unlocked_achievements}/{total_achievements}")
 
                 try:
-                    await Plugin.sync_game_with_playtime(self, appid, playtime_minutes)
+                    await Plugin.sync_game_with_playtime(self, appid, playtime_minutes, total_achievements, unlocked_achievements)
                     synced += 1
                     logger.info(f"[{i+1}/{total}] Completed: {game_name}")
 
@@ -621,9 +642,9 @@ class Plugin:
             logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
-    async def sync_game_with_playtime(self, appid: str, playtime_minutes: int) -> Dict[str, Any]:
-        """Sync a single game using frontend-provided playtime"""
-        logger.debug(f"sync_game_with_playtime: appid={appid}, playtime_minutes={playtime_minutes}")
+    async def sync_game_with_playtime(self, appid: str, playtime_minutes: int, total_achievements: int = 0, unlocked_achievements: int = 0) -> Dict[str, Any]:
+        """Sync a single game using frontend-provided playtime and achievements"""
+        logger.debug(f"sync_game_with_playtime: appid={appid}, playtime_minutes={playtime_minutes}, achievements={unlocked_achievements}/{total_achievements}")
 
         # Get current tag
         current_tag = await self.db.get_tag(appid)
@@ -636,23 +657,23 @@ class Plugin:
         # Get game name from steam service
         game_name = await self.steam_service.get_game_name(appid)
 
-        # Get achievements from steam service
-        achievements = await self.steam_service.get_game_achievements(appid)
+        # Calculate achievement percentage
+        achievement_percentage = (unlocked_achievements / total_achievements * 100) if total_achievements > 0 else 0.0
 
-        # Build stats object with frontend playtime
+        # Build stats object with frontend playtime and achievements
         stats = {
             "appid": appid,
             "game_name": game_name,
             "playtime_minutes": playtime_minutes,  # From frontend!
-            "total_achievements": achievements["total"],
-            "unlocked_achievements": achievements["unlocked"],
-            "achievement_percentage": achievements["percentage"]
+            "total_achievements": total_achievements,  # From frontend!
+            "unlocked_achievements": unlocked_achievements,  # From frontend!
+            "achievement_percentage": round(achievement_percentage, 2)
         }
 
         await self.db.update_game_stats(appid, stats)
 
         logger.info(f"  Stats: playtime={playtime_minutes}min, " +
-                    f"achievements={achievements['unlocked']}/{achievements['total']}")
+                    f"achievements={unlocked_achievements}/{total_achievements}")
 
         # Fetch HLTB if needed
         cached_hltb = await self.db.get_hltb_cache(appid)
