@@ -664,9 +664,12 @@ class Plugin:
 
             result = []
             for tag_entry in all_tags:
+                logger.info(f"[get_all_tags_with_names] tag_entry: {tag_entry}")
                 appid = tag_entry['appid']
                 stats = await self.db.get_game_stats(appid)
+                logger.info(f"[get_all_tags_with_names] stats: {stats}")
                 game_name = stats.get('game_name') if stats else None
+                logger.info(f"[get_all_tags_with_names] game_name: {game_name}")
 
                 # If no name in stats, try to get it from Steam/shortcuts
                 if not game_name or game_name.startswith('Unknown Game') or game_name.startswith('Game '):
