@@ -1,4 +1,4 @@
-const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.17","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
+const manifest = {"name":"Game Progress Tracker","author":"Maron","version":"1.1.18","api_version":1,"flags":["_root"],"publish":{"tags":["library","achievements","statistics","enhancement"],"description":"Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library.","image":"https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"}};
 const API_VERSION = 2;
 if (!manifest?.name) {
     throw new Error('[@decky/api]: Failed to find plugin manifest.');
@@ -279,7 +279,7 @@ const Settings = () => {
     };
     const syncLibrary = async () => {
         await logToBackend('info', '========================================');
-        await logToBackend('info', `syncLibrary button clicked - v${"1.1.17"}`);
+        await logToBackend('info', `syncLibrary button clicked - v${"1.1.18"}`);
         await logToBackend('info', '========================================');
         try {
             setSyncing(true);
@@ -460,7 +460,7 @@ const Settings = () => {
             SP_REACT.createElement("div", { style: styles$1.about },
                 SP_REACT.createElement("p", null,
                     "Game Progress Tracker v",
-                    "1.1.17"),
+                    "1.1.18"),
                 SP_REACT.createElement("p", null, "Automatic game tagging based on achievements, playtime, and completion time."),
                 SP_REACT.createElement("p", { style: styles$1.smallText }, "Data from HowLongToBeat \u2022 Steam achievement system")))));
 };
@@ -1211,6 +1211,7 @@ function useGameTag(appid) {
  * GameTagBadge Component
  * Wrapper component for displaying game tag on library app page
  * Designed to be injected via safe route patching
+ * Uses same positioning pattern as ProtonDB Badges
  */
 // Debug logging helper
 const log$2 = (msg, data) => {
@@ -1223,11 +1224,40 @@ const log$2 = (msg, data) => {
     }
 };
 /**
+ * Find the TopCapsule element by walking up the DOM tree
+ * Same pattern used by ProtonDB Badges
+ */
+function findTopCapsuleParent(ref) {
+    const children = ref?.parentElement?.children;
+    if (!children) {
+        return null;
+    }
+    // Find the Header container
+    let headerContainer;
+    for (const child of children) {
+        if (child.className.includes(DFL.appDetailsClasses.Header)) {
+            headerContainer = child;
+            break;
+        }
+    }
+    if (!headerContainer) {
+        return null;
+    }
+    // Find TopCapsule within the header
+    let topCapsule = null;
+    for (const child of headerContainer.children) {
+        if (child.className.includes(DFL.appDetailsHeaderClasses.TopCapsule)) {
+            topCapsule = child;
+            break;
+        }
+    }
+    return topCapsule;
+}
+/**
  * Placeholder button when no tag exists
  */
 const AddTagButton = ({ onClick }) => {
     const buttonStyle = {
-        position: 'relative',
         display: 'inline-flex',
         background: 'rgba(50, 50, 50, 0.9)',
         color: '#aaa',
@@ -1249,16 +1279,47 @@ const AddTagButton = ({ onClick }) => {
 /**
  * GameTagBadge - Main component injected into library app page
  * Shows tag badge or "Add Tag" button, with TagManager modal
+ * Positions on opposite side of ProtonDB (top-right vs their top-left default)
  */
 const GameTagBadge = ({ appid }) => {
     const { tag, loading, error, refetch } = useGameTag(appid);
     const [showManager, setShowManager] = SP_REACT.useState(false);
+    const [show, setShow] = SP_REACT.useState(true);
+    const ref = SP_REACT.useRef(null);
     SP_REACT.useEffect(() => {
         log$2(`Mounted: appid=${appid}`);
         return () => {
             log$2(`Unmounted: appid=${appid}`);
         };
     }, [appid]);
+    // Watch for fullscreen mode changes (same pattern as ProtonDB)
+    SP_REACT.useEffect(() => {
+        const topCapsule = findTopCapsuleParent(ref?.current);
+        if (!topCapsule) {
+            log$2('TopCapsule container not found');
+            return;
+        }
+        log$2('TopCapsule found, setting up mutation observer');
+        const mutationObserver = new MutationObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.type !== 'attributes' || entry.attributeName !== 'class') {
+                    continue;
+                }
+                const className = entry.target.className;
+                const fullscreenMode = className.includes(DFL.appDetailsHeaderClasses.FullscreenEnterStart) ||
+                    className.includes(DFL.appDetailsHeaderClasses.FullscreenEnterActive) ||
+                    className.includes(DFL.appDetailsHeaderClasses.FullscreenEnterDone) ||
+                    className.includes(DFL.appDetailsHeaderClasses.FullscreenExitStart) ||
+                    className.includes(DFL.appDetailsHeaderClasses.FullscreenExitActive);
+                const fullscreenAborted = className.includes(DFL.appDetailsHeaderClasses.FullscreenExitDone);
+                setShow(!fullscreenMode || fullscreenAborted);
+            }
+        });
+        mutationObserver.observe(topCapsule, { attributes: true, attributeFilter: ['class'] });
+        return () => {
+            mutationObserver.disconnect();
+        };
+    }, []);
     SP_REACT.useEffect(() => {
         log$2(`State update: appid=${appid}, loading=${loading}, tag=`, tag);
         if (error) {
@@ -1267,9 +1328,9 @@ const GameTagBadge = ({ appid }) => {
     }, [appid, tag, loading, error]);
     if (loading) {
         log$2(`Still loading for appid=${appid}`);
-        return null;
+        return SP_REACT.createElement("div", { ref: ref, style: { display: 'none' } });
     }
-    log$2(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}`);
+    log$2(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}, show=${show}`);
     const handleClick = () => {
         log$2(`Tag button clicked for appid=${appid}`);
         setShowManager(true);
@@ -1279,22 +1340,16 @@ const GameTagBadge = ({ appid }) => {
         setShowManager(false);
         refetch();
     };
-    // Container style - use negative margin to overlay on header image
+    // Position on top-right (opposite side from ProtonDB's default top-left)
     const containerStyle = {
-        position: 'relative',
-        marginTop: '-80px', // Pull up into the header area
-        marginLeft: '16px',
-        marginBottom: '16px',
+        position: 'absolute',
+        top: '40px',
+        right: '20px',
         zIndex: 10,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        pointerEvents: 'auto',
     };
-    return (SP_REACT.createElement("div", { style: containerStyle },
-        tag && tag.tag ? (SP_REACT.createElement("div", { style: { position: 'relative', display: 'inline-flex' } },
-            SP_REACT.createElement(GameTag, { tag: tag, onClick: handleClick }))) : (SP_REACT.createElement(AddTagButton, { onClick: handleClick })),
-        showManager && (SP_REACT.createElement(TagManager, { appid: appid, onClose: handleClose }))));
+    return (SP_REACT.createElement("div", { ref: ref, style: containerStyle }, show && (SP_REACT.createElement(SP_REACT.Fragment, null,
+        tag && tag.tag ? (SP_REACT.createElement(GameTag, { tag: tag, onClick: handleClick })) : (SP_REACT.createElement(AddTagButton, { onClick: handleClick })),
+        showManager && (SP_REACT.createElement(TagManager, { appid: appid, onClose: handleClose }))))));
 };
 
 /**

@@ -2,9 +2,11 @@
  * GameTagBadge Component
  * Wrapper component for displaying game tag on library app page
  * Designed to be injected via safe route patching
+ * Uses same positioning pattern as ProtonDB Badges
  */
 
-import React, { useState, useEffect, FC } from 'react';
+import React, { useState, useEffect, useRef, FC } from 'react';
+import { appDetailsClasses, appDetailsHeaderClasses } from '@decky/ui';
 import { GameTag } from './GameTag';
 import { TagManager } from './TagManager';
 import { useGameTag } from '../hooks/useGameTag';
@@ -20,11 +22,45 @@ const log = (msg: string, data?: any) => {
 };
 
 /**
+ * Find the TopCapsule element by walking up the DOM tree
+ * Same pattern used by ProtonDB Badges
+ */
+function findTopCapsuleParent(ref: HTMLDivElement | null): Element | null {
+  const children = ref?.parentElement?.children;
+  if (!children) {
+    return null;
+  }
+
+  // Find the Header container
+  let headerContainer: Element | undefined;
+  for (const child of children) {
+    if (child.className.includes(appDetailsClasses.Header)) {
+      headerContainer = child;
+      break;
+    }
+  }
+
+  if (!headerContainer) {
+    return null;
+  }
+
+  // Find TopCapsule within the header
+  let topCapsule: Element | null = null;
+  for (const child of headerContainer.children) {
+    if (child.className.includes(appDetailsHeaderClasses.TopCapsule)) {
+      topCapsule = child;
+      break;
+    }
+  }
+
+  return topCapsule;
+}
+
+/**
  * Placeholder button when no tag exists
  */
 const AddTagButton: FC<{ onClick: () => void }> = ({ onClick }) => {
   const buttonStyle: React.CSSProperties = {
-    position: 'relative',
     display: 'inline-flex',
     background: 'rgba(50, 50, 50, 0.9)',
     color: '#aaa',
@@ -55,10 +91,13 @@ interface GameTagBadgeProps {
 /**
  * GameTagBadge - Main component injected into library app page
  * Shows tag badge or "Add Tag" button, with TagManager modal
+ * Positions on opposite side of ProtonDB (top-right vs their top-left default)
  */
 export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
   const { tag, loading, error, refetch } = useGameTag(appid);
   const [showManager, setShowManager] = useState(false);
+  const [show, setShow] = useState(true);
+  const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     log(`Mounted: appid=${appid}`);
@@ -66,6 +105,42 @@ export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
       log(`Unmounted: appid=${appid}`);
     };
   }, [appid]);
+
+  // Watch for fullscreen mode changes (same pattern as ProtonDB)
+  useEffect(() => {
+    const topCapsule = findTopCapsuleParent(ref?.current);
+    if (!topCapsule) {
+      log('TopCapsule container not found');
+      return;
+    }
+
+    log('TopCapsule found, setting up mutation observer');
+
+    const mutationObserver = new MutationObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.type !== 'attributes' || entry.attributeName !== 'class') {
+          continue;
+        }
+
+        const className = (entry.target as Element).className;
+        const fullscreenMode =
+          className.includes(appDetailsHeaderClasses.FullscreenEnterStart) ||
+          className.includes(appDetailsHeaderClasses.FullscreenEnterActive) ||
+          className.includes(appDetailsHeaderClasses.FullscreenEnterDone) ||
+          className.includes(appDetailsHeaderClasses.FullscreenExitStart) ||
+          className.includes(appDetailsHeaderClasses.FullscreenExitActive);
+        const fullscreenAborted =
+          className.includes(appDetailsHeaderClasses.FullscreenExitDone);
+
+        setShow(!fullscreenMode || fullscreenAborted);
+      }
+    });
+
+    mutationObserver.observe(topCapsule, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      mutationObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     log(`State update: appid=${appid}, loading=${loading}, tag=`, tag);
@@ -76,10 +151,10 @@ export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
 
   if (loading) {
     log(`Still loading for appid=${appid}`);
-    return null;
+    return <div ref={ref} style={{ display: 'none' }} />;
   }
 
-  log(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}`);
+  log(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}, show=${show}`);
 
   const handleClick = () => {
     log(`Tag button clicked for appid=${appid}`);
@@ -92,33 +167,30 @@ export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
     refetch();
   };
 
-  // Container style - use negative margin to overlay on header image
+  // Position on top-right (opposite side from ProtonDB's default top-left)
   const containerStyle: React.CSSProperties = {
-    position: 'relative',
-    marginTop: '-80px',  // Pull up into the header area
-    marginLeft: '16px',
-    marginBottom: '16px',
+    position: 'absolute',
+    top: '40px',
+    right: '20px',
     zIndex: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    pointerEvents: 'auto',
   };
 
   return (
-    <div style={containerStyle}>
-      {tag && tag.tag ? (
-        <div style={{ position: 'relative', display: 'inline-flex' }}>
-          <GameTag tag={tag} onClick={handleClick} />
-        </div>
-      ) : (
-        <AddTagButton onClick={handleClick} />
-      )}
-      {showManager && (
-        <TagManager
-          appid={appid}
-          onClose={handleClose}
-        />
+    <div ref={ref} style={containerStyle}>
+      {show && (
+        <>
+          {tag && tag.tag ? (
+            <GameTag tag={tag} onClick={handleClick} />
+          ) : (
+            <AddTagButton onClick={handleClick} />
+          )}
+          {showManager && (
+            <TagManager
+              appid={appid}
+              onClose={handleClose}
+            />
+          )}
+        </>
       )}
     </div>
   );
