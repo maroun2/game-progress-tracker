@@ -374,45 +374,65 @@ class SteamDataService:
         return games
 
     def _parse_shortcuts_binary(self, content: bytes) -> List[Dict[str, Any]]:
-        """Parse binary shortcuts.vdf format"""
+        """Parse binary shortcuts.vdf format
+
+        Binary VDF format uses:
+        - 0x00 for nested object start
+        - 0x01 for string type (followed by key\x00value\x00)
+        - 0x02 for int32 type (followed by key\x00 + 4 bytes)
+        - 0x08 for end of object
+        """
         games = []
-        pos = 0
 
         try:
-            while pos < len(content):
-                # Look for AppName (0x01) marker followed by string
-                appname_marker = content.find(b'\x01AppName\x00', pos)
-                if appname_marker == -1:
+            # Find all appname occurrences (lowercase, as seen in actual file)
+            appname_marker = b'\x01appname\x00'
+            appid_marker = b'\x02appid\x00'
+
+            pos = 0
+            while True:
+                # Find next appname
+                name_pos = content.find(appname_marker, pos)
+                if name_pos == -1:
                     break
 
                 # Extract app name (null-terminated string after marker)
-                name_start = appname_marker + len(b'\x01AppName\x00')
+                name_start = name_pos + len(appname_marker)
                 name_end = content.find(b'\x00', name_start)
                 if name_end == -1:
                     break
 
                 app_name = content[name_start:name_end].decode('utf-8', errors='ignore')
 
-                # Look for appid (0x02) marker - it's a 4-byte integer
-                appid_marker = content.find(b'\x02appid\x00', pos)
+                # Look for appid before appname (it comes first in each entry)
+                # Search backwards from appname position
+                search_start = max(0, name_pos - 100)
+                search_chunk = content[search_start:name_pos]
+
                 appid = None
-                if appid_marker != -1 and appid_marker < appname_marker + 500:
-                    appid_start = appid_marker + len(b'\x02appid\x00')
-                    if appid_start + 4 <= len(content):
-                        appid_bytes = content[appid_start:appid_start + 4]
-                        appid = int.from_bytes(appid_bytes, 'little')
+                appid_offset = search_chunk.rfind(appid_marker)  # Find last occurrence before appname
+                if appid_offset != -1:
+                    appid_start = appid_offset + len(appid_marker)
+                    if appid_start + 4 <= len(search_chunk):
+                        appid_bytes = search_chunk[appid_start:appid_start + 4]
+                        # Interpret as unsigned 32-bit integer
+                        appid = int.from_bytes(appid_bytes, 'little', signed=False)
 
                 if app_name and appid:
                     games.append({
                         "appid": str(appid),
                         "name": app_name,
-                        "playtime_minutes": 0,  # Non-Steam games don't have playtime tracked locally
+                        "playtime_minutes": 0,
                         "is_non_steam": True
                     })
+                    logger.debug(f"[_parse_shortcuts_binary] Found: {app_name} (appid={appid})")
 
                 pos = name_end + 1
 
         except Exception as e:
             logger.error(f"Error parsing shortcuts binary: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
+        logger.info(f"[_parse_shortcuts_binary] Parsed {len(games)} games")
         return games
