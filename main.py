@@ -206,10 +206,21 @@ class Plugin:
             logger.error(f"Failed to sync tags for {appid}: {e}")
             return {"error": str(e)}
 
+    # ==================== Helper Methods ====================
+
+    def _extract_appid(self, appid) -> str:
+        """Extract appid string from various input formats.
+        Decky API may pass params as dict or string depending on version."""
+        if isinstance(appid, dict):
+            # Handle case where call() passes {appid: "123"} as single param
+            return str(appid.get('appid', appid))
+        return str(appid)
+
     # ==================== Plugin API Methods ====================
 
-    async def get_game_tag(self, appid: str) -> Dict[str, Any]:
+    async def get_game_tag(self, appid) -> Dict[str, Any]:
         """Get tag for a specific game"""
+        appid = self._extract_appid(appid)
         logger.info(f"=== get_game_tag called: appid={appid} ===")
         try:
             tag = await self.db.get_tag(appid)
@@ -223,8 +234,13 @@ class Plugin:
             logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
-    async def set_manual_tag(self, appid: str, tag: str) -> Dict[str, bool]:
+    async def set_manual_tag(self, appid, tag: str = None) -> Dict[str, bool]:
         """Manually set/override tag"""
+        appid = self._extract_appid(appid)
+        # Handle case where both params come in first arg as dict
+        if tag is None and isinstance(appid, str):
+            # This shouldn't happen after extraction, but safety check
+            return {"success": False, "error": "Missing tag parameter"}
         logger.info(f"=== set_manual_tag called: appid={appid}, tag={tag} ===")
         try:
             # Validate tag
@@ -242,8 +258,9 @@ class Plugin:
             logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
-    async def remove_tag(self, appid: str) -> Dict[str, bool]:
+    async def remove_tag(self, appid) -> Dict[str, bool]:
         """Remove tag from game"""
+        appid = self._extract_appid(appid)
         try:
             success = await self.db.remove_tag(appid)
             return {"success": success}
@@ -251,8 +268,9 @@ class Plugin:
             logger.error(f"Error removing tag for {appid}: {e}")
             return {"success": False, "error": str(e)}
 
-    async def reset_to_auto_tag(self, appid: str) -> Dict[str, Any]:
+    async def reset_to_auto_tag(self, appid) -> Dict[str, Any]:
         """Reset manual override to auto-calculated tag"""
+        appid = self._extract_appid(appid)
         try:
             # Force recalculation
             result = await Plugin.sync_game_tags(self, appid, force=True)
@@ -261,8 +279,9 @@ class Plugin:
             logger.error(f"Error resetting tag for {appid}: {e}")
             return {"success": False, "error": str(e)}
 
-    async def sync_single_game(self, appid: str) -> Dict[str, Any]:
+    async def sync_single_game(self, appid) -> Dict[str, Any]:
         """Sync data and tags for single game"""
+        appid = self._extract_appid(appid)
         try:
             result = await Plugin.sync_game_tags(self, appid, force=False)
             return {"success": True, "result": result}
@@ -345,8 +364,9 @@ class Plugin:
             logger.error(f"Failed to refresh HLTB cache: {e}")
             return {"success": False, "error": str(e)}
 
-    async def get_game_details(self, appid: str) -> Dict[str, Any]:
+    async def get_game_details(self, appid) -> Dict[str, Any]:
         """Get all details for a game"""
+        appid = self._extract_appid(appid)
         logger.info(f"=== get_game_details called: appid={appid} ===")
         try:
             # Get stats
