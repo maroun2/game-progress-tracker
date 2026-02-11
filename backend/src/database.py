@@ -86,9 +86,16 @@ class Database:
                 playtime_minutes INTEGER DEFAULT 0,
                 total_achievements INTEGER DEFAULT 0,
                 unlocked_achievements INTEGER DEFAULT 0,
+                is_hidden BOOLEAN DEFAULT 0,
                 last_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Migration: Add is_hidden column if it doesn't exist
+        cursor.execute("PRAGMA table_info(game_stats)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'is_hidden' not in columns:
+            cursor.execute("ALTER TABLE game_stats ADD COLUMN is_hidden BOOLEAN DEFAULT 0")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS settings (
@@ -297,21 +304,23 @@ class Database:
         cursor.execute("""
             INSERT INTO game_stats (
                 appid, game_name, playtime_minutes,
-                total_achievements, unlocked_achievements, last_sync
+                total_achievements, unlocked_achievements, is_hidden, last_sync
             )
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(appid) DO UPDATE SET
                 game_name = excluded.game_name,
                 playtime_minutes = excluded.playtime_minutes,
                 total_achievements = excluded.total_achievements,
                 unlocked_achievements = excluded.unlocked_achievements,
+                is_hidden = excluded.is_hidden,
                 last_sync = CURRENT_TIMESTAMP
         """, (
             appid,
             stats.get("game_name", ""),
             stats.get("playtime_minutes", 0),
             stats.get("total_achievements", 0),
-            stats.get("unlocked_achievements", 0)
+            stats.get("unlocked_achievements", 0),
+            int(stats.get("is_hidden", False))
         ))
         conn.commit()
 
@@ -341,27 +350,37 @@ class Database:
         row = await asyncio.to_thread(self._get_stats_sync, self.connection, appid)
 
         if row:
+            # Handle case where is_hidden column might not exist yet (migration)
+            try:
+                is_hidden = bool(row["is_hidden"])
+            except (KeyError, IndexError):
+                is_hidden = False
+
             return {
                 "appid": row["appid"],
                 "game_name": row["game_name"],
                 "playtime_minutes": row["playtime_minutes"],
                 "total_achievements": row["total_achievements"],
                 "unlocked_achievements": row["unlocked_achievements"],
+                "is_hidden": is_hidden,
                 "last_sync": row["last_sync"]
             }
         return None
 
-    def _get_all_game_stats_sync(self, conn):
+    def _get_all_game_stats_sync(self, conn, include_hidden: bool = True):
         cursor = conn.cursor()
-        cursor.execute("SELECT appid FROM game_stats")
+        if include_hidden:
+            cursor.execute("SELECT appid FROM game_stats")
+        else:
+            cursor.execute("SELECT appid FROM game_stats WHERE is_hidden = 0 OR is_hidden IS NULL")
         return cursor.fetchall()
 
-    async def get_all_game_stats(self) -> List[Dict[str, Any]]:
+    async def get_all_game_stats(self, include_hidden: bool = True) -> List[Dict[str, Any]]:
         """Get all game statistics records (appid only for counting)"""
         if not self.connection:
             return []
 
-        rows = await asyncio.to_thread(self._get_all_game_stats_sync, self.connection)
+        rows = await asyncio.to_thread(self._get_all_game_stats_sync, self.connection, include_hidden)
         return [{"appid": row["appid"]} for row in rows]
 
     # Settings operations

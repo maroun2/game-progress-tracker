@@ -113,9 +113,11 @@ class Plugin:
         """Calculate automatic tag based on game stats
 
         Tag priority:
-        1. Mastered: 100% achievements unlocked
+        1. Mastered: >=85% achievements unlocked
         2. Completed: playtime >= main_story time from HLTB
         3. In Progress: playtime >= threshold (default 30 min)
+
+        Note: Hidden games (non-Steam apps without HLTB) are filtered at sync level.
         """
         # Get game statistics
         stats = await self.db.get_game_stats(appid)
@@ -454,22 +456,36 @@ class Plugin:
             if all_tags:
                 logger.info(f"[get_tag_statistics] all_tags sample (first 3): {all_tags[:3]}")
 
-            all_games = await self.db.get_all_game_stats()
+            # Exclude hidden games from statistics (non-Steam apps without HLTB data)
+            all_games = await self.db.get_all_game_stats(include_hidden=False)
             total_library = len(all_games) if all_games else 0
-            logger.info(f"[get_tag_statistics] total_library (all_games count): {total_library}")
+            logger.info(f"[get_tag_statistics] total_library (visible games): {total_library}")
 
-            stats = {
+            # Count tags only for non-hidden games
+            visible_tags = 0
+            tag_counts = {
                 "completed": 0,
                 "in_progress": 0,
                 "mastered": 0,
-                "backlog": total_library - len(all_tags),
-                "total": total_library
             }
 
             for tag_entry in all_tags:
+                appid = tag_entry.get('appid')
+                # Check if this game is hidden
+                game_stats = await self.db.get_game_stats(appid)
+                if game_stats and game_stats.get('is_hidden'):
+                    continue  # Skip hidden games
+
                 tag_type = tag_entry.get('tag')
-                if tag_type in stats:
-                    stats[tag_type] += 1
+                if tag_type in tag_counts:
+                    tag_counts[tag_type] += 1
+                    visible_tags += 1
+
+            stats = {
+                **tag_counts,
+                "backlog": total_library - visible_tags,
+                "total": total_library
+            }
 
             result = {"success": True, "stats": stats}
             logger.info(f"[get_tag_statistics] returning: {result}")
@@ -638,7 +654,24 @@ class Plugin:
         # Get game name from steam service
         game_name = await self.steam_service.get_game_name(appid)
 
-        # Use frontend-provided percentage (more accurate than calculating from total/unlocked)
+        # Check if this is a non-Steam game (appid > 2 billion = CRC32 hash)
+        try:
+            appid_int = int(appid)
+            is_non_steam = appid_int > 2000000000
+        except (ValueError, TypeError):
+            is_non_steam = False
+
+        # Fetch HLTB if needed (do this before building stats so we can set is_hidden)
+        cached_hltb = await self.db.get_hltb_cache(appid)
+        if not cached_hltb:
+            hltb_data = await self.hltb_service.search_game(game_name)
+            if hltb_data:
+                await self.db.cache_hltb_data(appid, hltb_data)
+                cached_hltb = hltb_data
+
+        # Determine if this game should be hidden from library
+        # Hide non-Steam apps that have no HLTB data (likely not real games: Discord, Chrome, etc.)
+        is_hidden = is_non_steam and not cached_hltb
 
         # Build stats object with frontend playtime and achievements
         stats = {
@@ -647,21 +680,15 @@ class Plugin:
             "playtime_minutes": playtime_minutes,  # From frontend!
             "total_achievements": total_achievements,  # From frontend!
             "unlocked_achievements": unlocked_achievements,  # From frontend!
-            "achievement_percentage": round(achievement_percentage, 2)
+            "achievement_percentage": round(achievement_percentage, 2),
+            "is_hidden": is_hidden
         }
 
         await self.db.update_game_stats(appid, stats)
 
         logger.info(f"  Stats: playtime={playtime_minutes}min, " +
-                    f"achievements={unlocked_achievements}/{total_achievements}")
-
-        # Fetch HLTB if needed
-        cached_hltb = await self.db.get_hltb_cache(appid)
-        if not cached_hltb:
-            hltb_data = await self.hltb_service.search_game(game_name)
-            if hltb_data:
-                await self.db.cache_hltb_data(appid, hltb_data)
-                cached_hltb = hltb_data
+                    f"achievements={unlocked_achievements}/{total_achievements}" +
+                    (f", HIDDEN (non-Steam app without HLTB)" if is_hidden else ""))
 
         if cached_hltb:
             logger.info(f"  HLTB: main={cached_hltb.get('main_story')}h, extra={cached_hltb.get('main_extra')}h")
@@ -669,8 +696,11 @@ class Plugin:
             logger.info(f"  HLTB: no data")
 
         # Calculate tag (but don't override manual tags)
+        # Skip tag calculation for hidden games (unless manually tagged)
         if is_manual:
             logger.info(f"  Skipping tag calculation (manual override)")
+        elif is_hidden:
+            logger.info(f"  Skipping tag calculation (hidden non-Steam app)")
         else:
             new_tag = await Plugin.calculate_auto_tag(self, appid)
             logger.info(f"  Calculated tag: {new_tag or 'none'}")
@@ -699,6 +729,15 @@ class Plugin:
                 appid = tag_entry['appid']
                 stats = await self.db.get_game_stats(appid)
                 logger.info(f"[get_all_tags_with_names] stats: {stats}")
+
+                # Skip hidden games UNLESS they have a manual tag
+                # (user explicitly tagged them, so they want to see them)
+                is_hidden = stats.get('is_hidden', False) if stats else False
+                is_manual = tag_entry.get('is_manual', False)
+                if is_hidden and not is_manual:
+                    logger.info(f"[get_all_tags_with_names] skipping hidden non-Steam app: {appid}")
+                    continue
+
                 game_name = stats.get('game_name') if stats else None
                 logger.info(f"[get_all_tags_with_names] game_name: {game_name}")
 
@@ -710,7 +749,7 @@ class Plugin:
                     'appid': appid,
                     'game_name': game_name,
                     'tag': tag_entry['tag'],
-                    'is_manual': tag_entry.get('is_manual', False)
+                    'is_manual': is_manual
                 })
 
             # Sort by tag type, then by name
@@ -736,9 +775,9 @@ class Plugin:
             tagged_appids = set(tag['appid'] for tag in all_tags) if all_tags else set()
             logger.info(f"[get_backlog_games] tagged_appids count: {len(tagged_appids)}")
 
-            # Get all games from stats
-            all_game_stats = await self.db.get_all_game_stats()
-            logger.info(f"[get_backlog_games] all_game_stats count: {len(all_game_stats) if all_game_stats else 0}")
+            # Get all games from stats (excluding hidden games)
+            all_game_stats = await self.db.get_all_game_stats(include_hidden=False)
+            logger.info(f"[get_backlog_games] all_game_stats count (visible only): {len(all_game_stats) if all_game_stats else 0}")
 
             result = []
             for game in all_game_stats:
