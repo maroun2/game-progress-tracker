@@ -2,6 +2,8 @@
 
 ## Release
 
+### Full Release (all steps)
+
 Single command to build, commit, tag, and create GitHub release:
 
 ```bash
@@ -10,7 +12,34 @@ Single command to build, commit, tag, and create GitHub release:
 
 **IMPORTANT:** Version must be numbers and dots only (e.g., `1.1.14`), NOT with `v` prefix.
 
-This script:
+### Granular Control
+
+The release script supports granular control with flags:
+
+**Skip specific steps:**
+```bash
+./release.sh 1.2.0 "Description" --skip-commit       # Don't commit to git
+./release.sh 1.2.0 "Description" --skip-release      # Don't create GitHub release
+./release.sh 1.2.0 "Description" --skip-build        # Don't build (use existing dist/)
+./release.sh 1.2.0 "Description" --skip-version      # Don't update version files
+```
+
+**Only run specific steps:**
+```bash
+./release.sh 1.2.0 "Description" --only-build        # Only build frontend
+./release.sh 1.2.0 "Description" --only-version      # Only update version numbers
+./release.sh 1.2.0 "Description" --only-package      # Only create zip package
+./release.sh 1.2.0 "Description" --only-commit       # Only commit and push
+./release.sh 1.2.0 "Description" --only-release      # Only create GitHub release
+```
+
+**Additional options:**
+```bash
+./release.sh 1.2.0 "Description" --only-commit --no-push  # Commit but don't push
+```
+
+### What the script does:
+
 1. Updates version in package.json and plugin.json
 2. Builds the frontend (`npm run build`)
 3. Creates plugin zip package
