@@ -468,7 +468,7 @@ export const Settings: FC = () => {
               const isExpanded = expandedSections[tagType];
 
               return (
-                <div key={tagType} style={styles.tagSection}>
+                <Focusable key={tagType} style={styles.tagSection} flow-children="down">
                   <Focusable
                     style={styles.tagSectionHeader}
                     onActivate={() => toggleSection(tagType)}
@@ -523,7 +523,7 @@ export const Settings: FC = () => {
                   {isExpanded && games.length === 0 && !loadingBacklog && (
                     <div style={styles.emptySection}>No games with this tag</div>
                   )}
-                </div>
+                </Focusable>
               );
             })}
           </Focusable>
