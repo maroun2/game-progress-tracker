@@ -209,7 +209,8 @@ class Plugin:
         Tag priority:
         1. Mastered: >=85% achievements unlocked
         2. Completed: playtime >= main_story time from HLTB
-        3. In Progress: playtime >= threshold (default 30 min)
+        3. Dropped: Not played for over 1 year (only if not mastered/completed)
+        4. In Progress: playtime >= threshold (default 30 min)
 
         Note: Hidden games (non-Steam apps without HLTB) are filtered at sync level.
         """
@@ -246,7 +247,18 @@ class Plugin:
             if stats['playtime_minutes'] >= main_story_minutes:
                 return "completed"
 
-        # Priority 3: In Progress (played >= threshold)
+        # Priority 3: Dropped (not played for over 1 year)
+        # Only check if game was played before (has rt_last_time_played)
+        # Don't override mastered/completed above
+        rt_last_time_played = stats.get('rt_last_time_played')
+        if rt_last_time_played and rt_last_time_played > 0:
+            import time
+            current_time = int(time.time())
+            one_year_seconds = 365 * 24 * 60 * 60
+            if current_time - rt_last_time_played > one_year_seconds:
+                return "dropped"
+
+        # Priority 4: In Progress (played >= threshold)
         if stats['playtime_minutes'] >= in_progress_threshold:
             return "in_progress"
 
@@ -927,56 +939,25 @@ class Plugin:
         else:
             logger.info(f"  HLTB: no data")
 
-        # Calculate tag (but don't override manual tags)
-        # Skip tag calculation for hidden games (unless manually tagged)
+        # Calculate tag (but don't override manual tags or hidden games)
         tag_changed = False
-        calculated_tag = None
 
         if is_manual:
             logger.info(f"  Skipping tag calculation (manual override)")
         elif is_hidden:
             logger.info(f"  Skipping tag calculation (hidden non-Steam app)")
         else:
+            # Calculate tag using centralized logic
             calculated_tag = await Plugin.calculate_auto_tag(self, appid)
             logger.info(f"  Calculated tag: {calculated_tag or 'none'}")
 
-        # Check for automatic "dropped" tagging
-        # Only auto-tag as dropped if:
-        # 1. Game was played before (rt_last_time_played exists and > 0)
-        # 2. Not played for over 1 year
-        # 3. Not manually tagged
-        # 4. Not hidden
-        # 5. Calculated tag is None or "in_progress" (don't override completed/mastered)
-        import time
-        should_check_dropped = (
-            rt_last_time_played and
-            rt_last_time_played > 0 and
-            not is_manual and
-            not is_hidden and
-            calculated_tag in [None, 'in_progress']
-        )
-
-        if should_check_dropped:
-            current_time = int(time.time())
-            one_year_seconds = 365 * 24 * 60 * 60  # 31536000 seconds
-            days_since_played = (current_time - rt_last_time_played) / (24 * 60 * 60)
-
-            if current_time - rt_last_time_played > one_year_seconds:
-                # Auto-tag as dropped (overrides "in_progress" or no tag)
+            # Apply calculated tag if it changed
+            if calculated_tag:
                 current_tag_value = current_tag.get('tag') if current_tag else None
-                if current_tag_value != 'dropped':
-                    await self.db.set_tag(appid, 'dropped', is_manual=False)
-                    logger.info(f"  -> Auto-tagged as 'dropped' (not played for {days_since_played:.0f} days)")
+                if calculated_tag != current_tag_value:
+                    await self.db.set_tag(appid, calculated_tag, is_manual=False)
+                    logger.info(f"  -> Tag set: {calculated_tag}")
                     tag_changed = True
-                    calculated_tag = 'dropped'  # Don't apply calculated tag below
-
-        # Apply calculated tag only if not dropped
-        if calculated_tag and calculated_tag != 'dropped' and not is_manual and not is_hidden:
-            current_tag_value = current_tag.get('tag') if current_tag else None
-            if calculated_tag != current_tag_value:
-                await self.db.set_tag(appid, calculated_tag, is_manual=False)
-                logger.info(f"  -> Tag set: {calculated_tag}")
-                tag_changed = True
 
         result = await self.db.get_tag(appid) or {}
         result['tag_changed'] = tag_changed
