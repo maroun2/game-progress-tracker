@@ -385,6 +385,13 @@ export const Settings: FC = () => {
 
   return (
     <div style={styles.container}>
+      <style>{`
+        /* Match Decky's ButtonItem focus styling - subtle background highlight only */
+        .gpfocus {
+          background-color: rgba(255, 255, 255, 0.08) !important;
+          transition: background-color 0.15s ease-in-out;
+        }
+      `}</style>
       {message && (
         <div style={styles.message}>{message}</div>
       )}

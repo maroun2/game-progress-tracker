@@ -877,6 +877,13 @@ const Settings = () => {
         return (groupedGames[tagType] || []).length;
     };
     return (SP_REACT.createElement("div", { style: styles$1.container },
+        SP_REACT.createElement("style", null, `
+        /* Match Decky's ButtonItem focus styling - subtle background highlight only */
+        .gpfocus {
+          background-color: rgba(255, 255, 255, 0.08) !important;
+          transition: background-color 0.15s ease-in-out;
+        }
+      `),
         message && (SP_REACT.createElement("div", { style: styles$1.message }, message)),
         SP_REACT.createElement("div", { style: styles$1.section },
             SP_REACT.createElement("h3", { style: styles$1.sectionTitle },
