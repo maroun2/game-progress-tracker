@@ -386,10 +386,12 @@ export const Settings: FC = () => {
   return (
     <div style={styles.container}>
       <style>{`
-        /* Only highlight the ACTUAL focused element, not parents */
+        /* Subtle Steam-like focus styling - only highlights the actual focused element */
         .gpfocus {
-          outline: 2px solid #4c9aff !important;
-          background-color: #2a3f5f !important;
+          outline: 1px solid rgba(76, 154, 255, 0.8) !important;
+          outline-offset: 2px;
+          background-color: rgba(76, 154, 255, 0.1) !important;
+          transition: all 0.15s ease-in-out;
         }
       `}</style>
       {message && (
