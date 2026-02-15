@@ -1014,10 +1014,11 @@ const styles$1 = {
         display: 'inline-block',
     },
     gameItemContent: {
-        width: '100%',
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
+        maxWidth: '100%',
+        minWidth: 0,
     },
     smallDot: {
         width: '8px',
@@ -1040,6 +1041,8 @@ const styles$1 = {
         backgroundColor: '#333',
         padding: '2px 6px',
         borderRadius: '3px',
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
     },
     settingsContainer: {
         marginTop: '12px',
