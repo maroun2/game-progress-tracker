@@ -48,13 +48,43 @@ The release script supports granular control with flags:
 6. Creates and pushes git tag
 7. Creates GitHub release with install URL
 
+## Automated Development Builds
+
+Every commit to `main` branch automatically builds a test artifact via GitHub Actions.
+
+### How to Download Test Builds:
+
+1. Go to: https://github.com/maroun2/steam-deck-game-tags/actions
+2. Click the latest "Build Plugin Artifact" workflow run
+3. Scroll to bottom → Artifacts section
+4. Download: `game-progress-tracker` (contains versioned zip)
+5. Extract the zip file (named like `game-progress-tracker-1.3.6-abc1234.zip`)
+6. Copy to Steam Deck: `~/homebrew/plugins/`
+7. Restart Decky Loader
+
+**Version format:** `{last-tag}-{commit-sha}` (e.g., `1.3.6-abc1234`)
+
+- Version is automatically derived from latest git tag + short commit SHA
+- Version is updated in package.json, plugin.json, and VERSION file
+- Artifacts expire after 90 days
+
+**Note:** Artifacts require GitHub login to download. For stable releases, use the release process below.
+
 ## Testing on Steam Deck
 
-1. Create release so the zip is available to download
+### Stable Releases:
+1. Create release using `./release.sh X.Y.Z "Description"`
 2. Install via Decky Loader > Developer Mode > Install from URL
 3. Use the install URL from release notes
-4. Logs at: `/home/deck/homebrew/plugins/game-progress-tracker/logs/message.txt`
-5. All frontend logs go to backend via `log_frontend()` - no CEF debugging needed
+
+### Development Builds:
+1. Download artifact from GitHub Actions (see above)
+2. Manually extract and copy to `~/homebrew/plugins/`
+3. Restart Decky Loader
+
+### Logs:
+- Location: `/home/deck/homebrew/plugins/game-progress-tracker/logs/message.txt`
+- All frontend logs go to backend via `log_frontend()` - no CEF debugging needed
 
 ## CEF Debugging
 

@@ -1,0 +1,127 @@
+name: Build Plugin Artifact
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history to access tags
+
+      - name: Get version information
+        id: version
+        run: |
+          # Get latest tag (without 'v' prefix)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Get short commit SHA (7 characters)
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          echo "Short SHA: $SHORT_SHA"
+
+          # Build version string: {tag}-{sha}
+          VERSION="${LATEST_TAG}-${SHORT_SHA}"
+          echo "Version: $VERSION"
+
+          # Export for later steps
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Update version in JSON files
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Updating version to: $VERSION"
+
+          # Update package.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
+          echo "package.json updated"
+          grep '"version"' package.json | head -1
+
+          # Update plugin.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" plugin.json
+          echo "plugin.json updated"
+          grep '"version"' plugin.json | head -1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Create plugin directory structure
+        run: |
+          mkdir -p plugin-build/game-progress-tracker/backend/src
+
+          # Copy backend
+          cp backend/src/database.py plugin-build/game-progress-tracker/backend/src/
+          cp backend/src/steam_data.py plugin-build/game-progress-tracker/backend/src/
+          cp backend/src/hltb_service.py plugin-build/game-progress-tracker/backend/src/
+          cp backend/src/__init__.py plugin-build/game-progress-tracker/backend/src/
+          cp backend/__init__.py plugin-build/game-progress-tracker/backend/
+
+          # Copy other files (with updated versions)
+          cp -r dist plugin-build/game-progress-tracker/
+          cp main.py plugin-build/game-progress-tracker/
+          cp plugin.json plugin-build/game-progress-tracker/
+          cp package.json plugin-build/game-progress-tracker/
+          cp requirements.txt plugin-build/game-progress-tracker/
+          cp LICENSE plugin-build/game-progress-tracker/
+          cp README.md plugin-build/game-progress-tracker/
+
+      - name: Create VERSION file
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "$VERSION" > plugin-build/game-progress-tracker/VERSION
+          echo "VERSION file created with: $VERSION"
+
+      - name: Create versioned plugin zip
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP_NAME="game-progress-tracker-${VERSION}.zip"
+
+          cd plugin-build
+          zip -r "../$ZIP_NAME" game-progress-tracker
+          cd ..
+
+          echo "Created: $ZIP_NAME"
+          ls -lh "$ZIP_NAME"
+
+      - name: Verify zip contents
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP_NAME="game-progress-tracker-${VERSION}.zip"
+
+          echo "=== Plugin zip contents ==="
+          unzip -l "$ZIP_NAME" | head -30
+          echo ""
+          echo "=== Version in package.json ==="
+          unzip -p "$ZIP_NAME" game-progress-tracker/package.json | grep '"version"'
+          echo ""
+          echo "=== Version in plugin.json ==="
+          unzip -p "$ZIP_NAME" game-progress-tracker/plugin.json | grep '"version"'
+          echo ""
+          echo "=== VERSION file ==="
+          unzip -p "$ZIP_NAME" game-progress-tracker/VERSION
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-progress-tracker
+          path: game-progress-tracker-${{ steps.version.outputs.version }}.zip
+          retention-days: 90
