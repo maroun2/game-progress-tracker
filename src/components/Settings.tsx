@@ -439,26 +439,29 @@ export const Settings: FC = () => {
                   )}
 
                   {isExpanded && games.length > 0 && (
-                    <Focusable style={styles.gameList} flow-children="down">
+                    <>
                       {games.map((game) => (
-                        <Focusable
-                          key={game.appid}
-                          style={styles.gameItem}
-                          onActivate={() => navigateToGame(game.appid)}
-                        >
-                          <span
-                            style={{
-                              ...styles.smallDot,
-                              backgroundColor: TAG_COLORS[game.tag],
-                            }}
-                          />
-                          <span style={styles.gameName}>{game.game_name}</span>
-                          {game.is_manual && (
-                            <span style={styles.manualBadge}>manual</span>
-                          )}
-                        </Focusable>
+                        <PanelSectionRow key={game.appid}>
+                          <ButtonItem
+                            layout="below"
+                            onClick={() => navigateToGame(game.appid)}
+                          >
+                            <div style={styles.gameItemContent}>
+                              <span
+                                style={{
+                                  ...styles.smallDot,
+                                  backgroundColor: TAG_COLORS[game.tag],
+                                }}
+                              />
+                              <span style={styles.gameName}>{game.game_name}</span>
+                              {game.is_manual && (
+                                <span style={styles.manualBadge}>manual</span>
+                              )}
+                            </div>
+                          </ButtonItem>
+                        </PanelSectionRow>
                       ))}
-                    </Focusable>
+                    </>
                   )}
 
                   {isExpanded && games.length === 0 && !loadingBacklog && (
@@ -589,24 +592,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     display: 'inline-block',
   },
-  gameList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  gameItem: {
+  gameItemContent: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    padding: '8px 12px',
-    backgroundColor: '#252525',
-    borderRadius: '4px',
-    border: '2px solid transparent',
-    transition: 'all 0.2s',
-  },
-  gameItemFocused: {
-    backgroundColor: '#2a3f5f',
-    borderColor: '#4c9aff',
   },
   smallDot: {
     width: '8px',
