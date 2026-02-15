@@ -450,18 +450,16 @@ export const Settings: FC = () => {
                             layout="below"
                             onClick={() => navigateToGame(game.appid)}
                           >
-                            <div style={styles.gameItemContent}>
-                              <span
-                                style={{
-                                  ...styles.smallDot,
-                                  backgroundColor: TAG_COLORS[game.tag],
-                                }}
-                              />
-                              <div style={styles.gameName}>{game.game_name}</div>
-                              {game.is_manual && (
-                                <span style={styles.manualBadge}>manual</span>
-                              )}
-                            </div>
+                            <span
+                              style={{
+                                ...styles.smallDot,
+                                backgroundColor: TAG_COLORS[game.tag],
+                              }}
+                            />
+                            <div style={styles.gameName}>{game.game_name}</div>
+                            {game.is_manual && (
+                              <span style={styles.manualBadge}>manual</span>
+                            )}
                           </ButtonItem>
                         </PanelSectionRow>
                       ))}
@@ -614,9 +612,8 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    display: 'block',
-    flex: 1,
-    minWidth: 0,
+    display: 'inline-block',
+    maxWidth: '85%',
   },
   manualBadge: {
     fontSize: '10px',
