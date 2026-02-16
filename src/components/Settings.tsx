@@ -449,9 +449,10 @@ export const Settings: FC = () => {
                           <ButtonItem
                             layout="below"
                             onClick={() => navigateToGame(game.appid)}
-                            /* FIX: Force the ButtonItem to be shrinkable so the ellipsis can trigger */
-                            style={{ width: '100%', minWidth: 0 }} 
+                            style={{ width: '100%', minWidth: 0, overflow: 'hidden' }} 
                           >
+                          {/* Container wrapper to isolate from ButtonItem's internal quirks */}
+                          <div style={{ width: '100%', minWidth: 0, overflow: 'hidden' }}>
                             <div style={styles.gameItemContent}>
                               <span
                                 style={{
@@ -463,6 +464,7 @@ export const Settings: FC = () => {
                               {game.is_manual && (
                                 <span style={styles.manualBadge}>manual</span>
                               )}
+                            </div>
                             </div>
                           </ButtonItem>
                         </PanelSectionRow>
