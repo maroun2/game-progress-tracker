@@ -7,6 +7,6 @@
   "publish": {
     "tags": ["library", "achievements", "statistics", "enhancement", "progress-tracking"],
     "description": "Automatic game tagging based on achievements, playtime, and completion time. Track your progress with visual badges in the Steam library. Features 5 intelligent tags: Mastered, Completed, Dropped, In Progress, and Backlog.",
-    "image": "https://raw.githubusercontent.com/maroun2/game-progress-tracker/main/assets/store-banner.png"
+    "image": "https://raw.githubusercontent.com/maroun2/game-progress-tracker/main/assets/plugin-screenshot.jpg"
   }
 }

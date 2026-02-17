@@ -27,7 +27,9 @@ A Decky Loader plugin for Steam Deck that automatically tags your games based on
 
 ## Screenshots
 
-*Coming soon*
+![Game Progress Tracker Plugin UI](assets/plugin-screenshot.jpg)
+
+The plugin interface showing tag sections with game counts - Completed (16), Mastered (2), and Dropped (20) games are visible with their respective colored badges.
 
 ## Installation
 
