@@ -150,9 +150,10 @@ function patchLibraryGrid() {
   });
 
   // Patch multiple library routes
-  // Note: Steam Deck uses /routes/library instead of /library/home
+  // Note: Steam Deck uses /routes/library with tab variations
   const libraryRoutes = [
     '/routes/library',
+    '/routes/library/tab/:tab',  // This is what we're seeing: /routes/library/tab/GreatOnDeck
     '/routes/library/home',
     '/routes/library/collection/:collection',
     '/library/home',
@@ -163,17 +164,19 @@ function patchLibraryGrid() {
   const unpatchers: Array<any> = [];  // RoutePatch type
 
   libraryRoutes.forEach(route => {
+    log(`Registering patch for route: ${route}`);
+
     const unpatch = routerHook.addPatch(
       route,
       (routeProps: any) => {
-        log(`Route patch triggered for ${route}`);
+        log(`🎯 Route patch TRIGGERED for ${route}`);
 
         try {
           // Find the route props with renderFunc
           const renderFuncContainer = findInReactTree(routeProps, (x: any) => x?.renderFunc);
 
           if (renderFuncContainer) {
-            log(`Found renderFunc for ${route}`);
+            log(`✅ Found renderFunc for ${route}`);
 
             // Create a patcher that will modify the React tree
             const patchHandler = createReactTreePatcher(
@@ -249,26 +252,53 @@ function patchLibraryGrid() {
             );
 
             afterPatch(renderFuncContainer, "renderFunc", patchHandler);
-            log(`Patch handler attached to renderFunc for ${route}`);
+            log(`✅ Patch handler attached to renderFunc for ${route}`);
           } else {
-            log(`No renderFunc found for ${route}, trying alternative approach`);
+            log(`⚠️ No renderFunc found for ${route}, checking route structure...`);
 
-            // Alternative: try to patch componentDidMount or other lifecycle methods
-            if (routeProps?.componentDidMount) {
+            // Log what we do have in routeProps
+            const propKeys = Object.keys(routeProps || {});
+            log(`Route props available: ${propKeys.join(', ')}`);
+
+            // Try different patching strategies based on what's available
+            if (routeProps?.component) {
+              log(`Found 'component' property, attempting component patching`);
+
+              const originalComponent = routeProps.component;
+              routeProps.component = function(...args: any[]) {
+                log(`Component render triggered for ${route}`);
+                const result = originalComponent?.apply(this, args);
+
+                // Try to patch the result
+                if (result) {
+                  return findAndPatchGameTiles(result);
+                }
+                return result;
+              };
+            } else if (routeProps?.render) {
+              log(`Found 'render' property, attempting render patching`);
+
+              const originalRender = routeProps.render;
+              routeProps.render = function(...args: any[]) {
+                log(`Render triggered for ${route}`);
+                const result = originalRender?.apply(this, args);
+
+                // Try to patch the result
+                if (result) {
+                  return findAndPatchGameTiles(result);
+                }
+                return result;
+              };
+            } else if (routeProps?.componentDidMount) {
+              log(`Found 'componentDidMount', attempting lifecycle patching`);
+
               const originalDidMount = routeProps.componentDidMount;
               routeProps.componentDidMount = function(...args: any[]) {
                 log(`ComponentDidMount triggered for ${route}`);
-                const result = originalDidMount?.apply(this, args);
-
-                // Try to patch after mount
-                setTimeout(() => {
-                  log('Attempting post-mount patching');
-                  // This is where we'd need to access the component's rendered output
-                  // which is challenging without renderFunc
-                }, 100);
-
-                return result;
+                return originalDidMount?.apply(this, args);
               };
+            } else {
+              log(`⚠️ No suitable patching point found for ${route}`);
             }
           }
         } catch (error) {
