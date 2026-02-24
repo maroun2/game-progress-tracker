@@ -3,7 +3,7 @@ import { call, toaster } from '@decky/api';
 import { PanelSection, PanelSectionRow, ButtonItem, Navigation } from '@decky/ui';
 import { PluginSettings, SyncResult, TagStatistics, TaggedGame, GameListResult } from '../types';
 import { TagIcon, TagType } from './TagIcon';
-import { getAchievementData, getPlaytimeData, getGameNames, getAllOwnedGameIds, AchievementData } from '../lib/syncUtils';
+import { syncLibraryProgressive } from '../lib/syncUtils';
 
 const logToBackend = async (level: 'info' | 'error' | 'warn', message: string) => {
   console.log(`[DeckProgressTracker] ${message}`);
@@ -91,22 +91,44 @@ export const Settings: FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Track if we're waiting for backend to start (during data collection phase)
+  const [waitingForBackend, setWaitingForBackend] = useState(false);
+
   useEffect(() => {
     const pollSync = async () => {
       try {
         const res = await call<[], { success: boolean; syncing: boolean; current: number; total: number }>('get_sync_progress');
+
         if (res.success && res.syncing) {
+          // Backend is syncing - always show progress regardless of frontend state
+          // This handles sync from any source (manual, auto, initial load)
           setMessage(`Syncing: ${res.current}/${res.total} games`);
           setSyncing(true);
+          setWaitingForBackend(false);
         } else if (res.success && !res.syncing && syncing) {
+          // Backend finished but frontend still thinks it's syncing
+
+          // If we were waiting for backend to start, keep waiting
+          if (waitingForBackend) {
+            // Still preparing data, don't change state
+            return;
+          }
+
+          // Backend actually finished - clear syncing state and show completion
           setSyncing(false);
           smartUpdateUI();
+          // If the sync wasn't initiated by the button (no finally block to handle it),
+          // we should still show completion
+          if (res.total && res.total > 0) {
+            setMessage(`Sync complete! Library updated.`);
+            setTimeout(() => setMessage(null), 5000);
+          }
         }
       } catch (err) {}
     };
     const interval = setInterval(pollSync, syncing ? 500 : 2000);
     return () => clearInterval(interval);
-  }, [syncing]);
+  }, [syncing, waitingForBackend]);
 
   const toggleSection = async (tagType: string) => {
     const willExpand = !expandedSections[tagType];
@@ -123,33 +145,38 @@ export const Settings: FC = () => {
   const syncLibrary = async () => {
     try {
       setSyncing(true);
-      setMessage('Fetching game list...');
-      let appids = settings.source_all_owned ? await getAllOwnedGameIds() : [];
+      setWaitingForBackend(false);  // No longer waiting since we process immediately
+      setMessage('Starting sync...');
 
-      if (appids.length === 0) {
-        const res = await call<[], GameListResult>('get_all_games');
-        appids = res.games?.map(g => g.appid) || [];
-      }
+      // Use progressive sync with progress callback
+      const result = await syncLibraryProgressive((current, total, gameName) => {
+        // Update message with current game being processed
+        if (gameName) {
+          setMessage(`Syncing ${current}/${total}: ${gameName}`);
+        } else {
+          setMessage(`Syncing ${current}/${total} games...`);
+        }
 
-      setMessage(`Processing ${appids.length} games...`);
-      const [gameData, achievementData, gameNames] = await Promise.all([
-        getPlaytimeData(appids),
-        getAchievementData(appids),
-        getGameNames(appids)
-      ]);
-
-      const result = await call<[any], SyncResult>('sync_library_with_playtime', { 
-        game_data: gameData, achievement_data: achievementData, game_names: gameNames 
+        // Periodically update UI to show new tags
+        if (current % 10 === 0 || current === total) {
+          smartUpdateUI();
+        }
       });
 
+      // Sync completed
       smartUpdateUI();
-      const msg = `Sync complete! ${result.synced} games updated.`;
+      const msg = `Sync complete! ${result.synced} games updated${result.new_tags ? `, ${result.new_tags} new tags` : ''}.`;
       setMessage(msg);
-      toaster.toast({ title: 'Tracker', body: msg, duration: 5000 });
+      toaster.toast({ title: 'Deck Progress Tracker', body: msg, duration: 5000 });
+
+      // Clear message after a delay
+      setTimeout(() => setMessage(null), 10000);
     } catch (err: any) {
       setMessage(`Sync error: ${err?.message || 'Unknown'}`);
+      console.error('Sync error:', err);
     } finally {
       setSyncing(false);
+      setWaitingForBackend(false);
     }
   };
 
@@ -158,11 +185,6 @@ export const Settings: FC = () => {
     acc[g.tag].push(g);
     return acc;
   }, {} as Record<string, TaggedGame[]>);
-
-  const showMessage = (msg: string) => {
-    setMessage(msg);
-    setTimeout(() => setMessage(null), 5000);
-  };
 
   return (
     <div ref={containerRef} style={styles.container}>

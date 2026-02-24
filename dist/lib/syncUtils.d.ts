@@ -76,4 +76,9 @@ export declare const syncSingleGameWithFrontendData: (appid: string) => Promise<
     success: boolean;
     error?: string;
 }>;
+/**
+ * Progressive sync - process one game at a time completely before moving to next
+ * This provides immediate feedback and avoids long waits for achievement fetching
+ */
+export declare const syncLibraryProgressive: (onProgress?: (current: number, total: number, gameName?: string) => void) => Promise<SyncResult>;
 export declare const syncLibraryWithFrontendData: () => Promise<SyncResult>;

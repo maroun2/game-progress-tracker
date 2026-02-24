@@ -69,68 +69,95 @@ export const getAllOwnedGameIds = async (): Promise<string[]> => {
   const appStore = (window as any).appStore;
 
   if (!appStore) {
-    log('appStore not available');
+    log('❌ appStore not available - window.appStore is undefined/null');
+    log('This is likely because Steam frontend hasn\'t fully initialized yet');
     return [];
   }
 
+  log('✅ appStore is available');
+
   // Log available properties for debugging
   const appStoreKeys = Object.keys(appStore);
-  log('appStore keys:', appStoreKeys.join(', '));
+  log(`appStore has ${appStoreKeys.length} properties`);
+  if (appStoreKeys.length > 0) {
+    log('appStore keys (first 20):', appStoreKeys.slice(0, 20).join(', '));
+  }
 
   // Also log prototype methods
   try {
     const protoKeys = Object.getOwnPropertyNames(Object.getPrototypeOf(appStore));
-    log('appStore prototype methods:', protoKeys.slice(0, 30).join(', '));
+    log(`appStore prototype has ${protoKeys.length} methods`);
+    if (protoKeys.length > 0) {
+      log('appStore prototype methods (first 30):', protoKeys.slice(0, 30).join(', '));
+    }
   } catch (e) {
     log('Could not get appStore prototype');
   }
 
   // Try multiple known patterns for Steam's internal app storage
   // Pattern 1: m_mapApps (Map of all apps)
-  if (appStore.m_mapApps instanceof Map) {
-    const appids = Array.from(appStore.m_mapApps.keys()).map((id: any) => String(id));
-    log(`Found ${appids.length} games via m_mapApps Map`);
-    return appids.filter((id: string) => parseInt(id) > 0);
+  log('Pattern 1: Checking m_mapApps...');
+  if (appStore.m_mapApps) {
+    log(`m_mapApps exists, type: ${typeof appStore.m_mapApps}, isMap: ${appStore.m_mapApps instanceof Map}`);
+    if (appStore.m_mapApps instanceof Map) {
+      const appids = Array.from(appStore.m_mapApps.keys()).map((id: any) => String(id));
+      log(`✅ Found ${appids.length} games via m_mapApps Map`);
+      return appids.filter((id: string) => parseInt(id) > 0);
+    }
+  } else {
+    log('m_mapApps not found');
   }
 
   // Pattern 2: allApps property
+  log('Pattern 2: Checking allApps...');
   if (appStore.allApps) {
+    log(`allApps exists, type: ${typeof appStore.allApps}, isMap: ${appStore.allApps instanceof Map}, isArray: ${Array.isArray(appStore.allApps)}`);
     if (appStore.allApps instanceof Map) {
       const appids = Array.from(appStore.allApps.keys()).map((id: any) => String(id));
-      log(`Found ${appids.length} games via allApps Map`);
+      log(`✅ Found ${appids.length} games via allApps Map`);
       return appids.filter((id: string) => parseInt(id) > 0);
     }
     if (Array.isArray(appStore.allApps)) {
       const appids = appStore.allApps.map((app: any) => String(app.appid || app.app_id || app));
-      log(`Found ${appids.length} games via allApps Array`);
+      log(`✅ Found ${appids.length} games via allApps Array`);
       return appids.filter((id: string) => parseInt(id) > 0);
     }
+  } else {
+    log('allApps not found');
   }
 
   // Pattern 3: m_apps object
+  log('Pattern 3: Checking m_apps...');
   if (appStore.m_apps && typeof appStore.m_apps === 'object') {
+    log(`m_apps exists, type: ${typeof appStore.m_apps}, isMap: ${appStore.m_apps instanceof Map}`);
     if (appStore.m_apps instanceof Map) {
       const appids = Array.from(appStore.m_apps.keys()).map((id: any) => String(id));
-      log(`Found ${appids.length} games via m_apps Map`);
+      log(`✅ Found ${appids.length} games via m_apps Map`);
       return appids.filter((id: string) => parseInt(id) > 0);
     }
     const appids = Object.keys(appStore.m_apps);
-    log(`Found ${appids.length} games via m_apps Object`);
+    log(`✅ Found ${appids.length} games via m_apps Object`);
     return appids.filter((id: string) => parseInt(id) > 0);
+  } else {
+    log('m_apps not found');
   }
 
   // Pattern 4: Try GetAllAppOverviews method (common Steam pattern)
+  log('Pattern 4: Checking GetAllAppOverviews method...');
   if (typeof appStore.GetAllAppOverviews === 'function') {
     try {
       const overviews = appStore.GetAllAppOverviews();
+      log(`GetAllAppOverviews returned: ${typeof overviews}, isArray: ${Array.isArray(overviews)}`);
       if (Array.isArray(overviews)) {
         const appids = overviews.map((o: any) => String(o.appid || o.app_id || o.nAppID));
-        log(`Found ${appids.length} games via GetAllAppOverviews`);
+        log(`✅ Found ${appids.length} games via GetAllAppOverviews`);
         return appids.filter((id: string) => parseInt(id) > 0);
       }
     } catch (e) {
       log('GetAllAppOverviews failed:', e);
     }
+  } else {
+    log('GetAllAppOverviews method not found');
   }
 
   // Pattern 5: Try iterating appStore.GetAppOverviewByAppID with known appids
@@ -575,16 +602,35 @@ const syncGames = async (appids: string[]): Promise<SyncResult> => {
     log(`Names: ${Object.keys(gameNames).length}/${appids.length} games`);
 
     // Step 4: Send to backend
-    const result = await call<[{ game_data: Record<string, GameData>; achievement_data: Record<string, AchievementData>; game_names: Record<string, string> }], SyncResult>(
-      'sync_library_with_playtime',
-      { game_data: gameData, achievement_data: achievementData, game_names: gameNames }
-    );
+    log('Sending sync data to backend...');
+    log(`Payload size: gameData=${Object.keys(gameData).length}, achievements=${Object.keys(achievementData).length}, names=${Object.keys(gameNames).length}`);
 
-    log(`Sync complete: ${result.synced}/${result.total} games, ${result.errors || 0} errors`);
-    return result;
+    try {
+      const result = await call<[{ game_data: Record<string, GameData>; achievement_data: Record<string, AchievementData>; game_names: Record<string, string> }], SyncResult>(
+        'sync_library_with_playtime',
+        { game_data: gameData, achievement_data: achievementData, game_names: gameNames }
+      );
+
+      log('Backend call completed');
+      log(`Result from backend: success=${result?.success}, total=${result?.total}, synced=${result?.synced}, errors=${result?.errors}`);
+
+      if (result && result.success) {
+        log(`✅ Sync complete: ${result.synced}/${result.total} games, ${result.errors || 0} errors`);
+        return result;
+      } else {
+        log(`❌ Sync failed: Backend returned success=false`);
+        log(`Error from backend: ${result?.error || 'No error message'}`);
+        return result || { success: false, error: 'Backend returned null or undefined' };
+      }
+    } catch (backendError: any) {
+      log(`❌ Backend call threw an error: ${backendError?.message || backendError}`);
+      log(`Error stack: ${backendError?.stack}`);
+      throw backendError; // Re-throw to be caught by outer try-catch
+    }
 
   } catch (e: any) {
-    log(`Sync failed: ${e?.message}`);
+    log(`❌ Sync failed: ${e?.message || e}`);
+    log(`Error type: ${typeof e}, Error: ${JSON.stringify(e)}`);
     return { success: false, error: e?.message || 'Unknown error' };
   }
 };
@@ -602,6 +648,150 @@ export const syncSingleGameWithFrontendData = async (appid: string): Promise<{ s
   return { success: result.success, error: result.error };
 };
 
+/**
+ * Progressive sync - process one game at a time completely before moving to next
+ * This provides immediate feedback and avoids long waits for achievement fetching
+ */
+export const syncLibraryProgressive = async (
+  onProgress?: (current: number, total: number, gameName?: string) => void
+): Promise<SyncResult> => {
+  log('Starting progressive library sync');
+
+  try {
+    // Get settings
+    const settingsResult = await call<[], { settings: { source_all_owned?: boolean } }>('get_settings');
+    const useAllOwned = settingsResult?.settings?.source_all_owned ?? true;
+    log(`Source: ${useAllOwned ? 'all owned games' : 'installed only'}`);
+
+    // Get game list
+    let appids: string[];
+
+    if (useAllOwned) {
+      // Try to discover games from frontend with retries if appStore isn't ready
+      appids = await getAllOwnedGameIds();
+      log(`Initial discovery attempt: ${appids.length} owned games found`);
+
+      // Retry up to 5 times with progressive delays if discovery fails (appStore not ready on initial load)
+      let retries = 0;
+      const maxRetries = 5;
+      const retryDelays = [2000, 3000, 4000, 5000, 6000]; // Progressive delays
+
+      while (appids.length === 0 && retries < maxRetries) {
+        const delay = retryDelays[retries];
+        retries++;
+        log(`Discovery failed (Steam frontend may not be ready yet)`);
+        log(`Retry ${retries}/${maxRetries} in ${delay/1000}s...`);
+        log(`Current state: window.appStore=${!!(window as any).appStore}, window.collectionStore=${!!(window as any).collectionStore}`);
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        log(`Attempting retry ${retries}...`);
+        appids = await getAllOwnedGameIds();
+        log(`Retry ${retries} result: ${appids.length} owned games discovered`);
+      }
+
+      // Final fallback to backend if discovery still fails after retries
+      if (appids.length === 0) {
+        log('⚠️ Frontend discovery failed after all retries');
+        log('Falling back to backend game list (installed games only)');
+        const gamesResult = await call<[], GameListResult>('get_all_games');
+        if (gamesResult.success && gamesResult.games) {
+          appids = gamesResult.games.map(g => g.appid);
+          log(`Backend fallback: ${appids.length} installed games`);
+          log('Note: This will only sync installed games, not your full library');
+        }
+      } else {
+        log(`✅ Successfully discovered ${appids.length} games from Steam frontend`);
+      }
+    } else {
+      const gamesResult = await call<[], GameListResult>('get_all_games');
+      if (!gamesResult.success || !gamesResult.games) {
+        return { success: false, error: gamesResult.error || 'Failed to get game list' };
+      }
+      appids = gamesResult.games.map(g => g.appid);
+      log(`Backend: ${appids.length} games`);
+    }
+
+    if (appids.length === 0) {
+      log('No games found');
+      return { success: true, total: 0, synced: 0, errors: 0 };
+    }
+
+    const total = appids.length;
+    let synced = 0;
+    let errors = 0;
+    let newTags = 0;
+
+    log(`Starting progressive sync of ${total} games`);
+
+    // Process each game one at a time
+    for (let i = 0; i < appids.length; i++) {
+      const appid = appids[i];
+
+      try {
+        // Step 1: Fetch playtime for this game
+        const gameData = await getPlaytimeData([appid]);
+        const gameInfo = gameData[appid] || { playtime_minutes: 0, rt_last_time_played: null };
+
+        // Step 2: Fetch achievements for this game (with on-demand fallback)
+        const achievementData = await fetchAchievementsOnDemand(appid);
+
+        // Step 3: Fetch game name
+        const gameNames = await getGameNames([appid]);
+        const gameName = gameNames[appid] || `Game ${appid}`;
+
+        // Log progress
+        log(`[${i + 1}/${total}] Processing: ${gameName} (${appid})`);
+
+        // Update UI progress callback if provided
+        if (onProgress) {
+          onProgress(i + 1, total, gameName);
+        }
+
+        // Step 4: Send this single game to backend for processing
+        const result = await call<[any], any>('sync_single_game_with_data', {
+          appid,
+          game_data: gameInfo,
+          achievement_data: achievementData,
+          game_name: gameName,
+          is_bulk_sync: true,
+          current_index: i + 1,
+          total_count: total
+        });
+
+        if (result.success) {
+          synced++;
+          if (result.tag_changed) {
+            newTags++;
+          }
+          log(`[${i + 1}/${total}] ✅ Synced: ${gameName}`);
+        } else {
+          errors++;
+          log(`[${i + 1}/${total}] ❌ Failed: ${gameName} - ${result.error}`);
+        }
+
+      } catch (e: any) {
+        errors++;
+        log(`[${i + 1}/${total}] ❌ Error processing ${appid}: ${e?.message}`);
+      }
+    }
+
+    log(`✅ Progressive sync complete: ${synced}/${total} games, ${newTags} new tags, ${errors} errors`);
+
+    return {
+      success: true,
+      total,
+      synced,
+      new_tags: newTags,
+      errors
+    };
+
+  } catch (e: any) {
+    log(`Progressive sync failed: ${e?.message}`);
+    return { success: false, error: e?.message || 'Unknown error' };
+  }
+};
+
 export const syncLibraryWithFrontendData = async (): Promise<SyncResult> => {
   log('Starting library sync');
 
@@ -617,26 +807,39 @@ export const syncLibraryWithFrontendData = async (): Promise<SyncResult> => {
     if (useAllOwned) {
       // Try to discover games from frontend with retries if appStore isn't ready
       appids = await getAllOwnedGameIds();
-      log(`Discovered ${appids.length} owned games`);
+      log(`Initial discovery attempt: ${appids.length} owned games found`);
 
-      // Retry up to 3 times with 2 second delays if discovery fails (appStore not ready on initial load)
+      // Retry up to 5 times with progressive delays if discovery fails (appStore not ready on initial load)
       let retries = 0;
-      while (appids.length === 0 && retries < 3) {
+      const maxRetries = 5;
+      const retryDelays = [2000, 3000, 4000, 5000, 6000]; // Progressive delays
+
+      while (appids.length === 0 && retries < maxRetries) {
+        const delay = retryDelays[retries];
         retries++;
-        log(`Discovery failed (appStore may not be ready yet), retry ${retries}/3 in 2s...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        log(`Discovery failed (Steam frontend may not be ready yet)`);
+        log(`Retry ${retries}/${maxRetries} in ${delay/1000}s...`);
+        log(`Current state: window.appStore=${!!(window as any).appStore}, window.collectionStore=${!!(window as any).collectionStore}`);
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        log(`Attempting retry ${retries}...`);
         appids = await getAllOwnedGameIds();
-        log(`Retry ${retries}: Discovered ${appids.length} owned games`);
+        log(`Retry ${retries} result: ${appids.length} owned games discovered`);
       }
 
       // Final fallback to backend if discovery still fails after retries
       if (appids.length === 0) {
-        log('Discovery failed after retries, using backend list');
+        log('⚠️ Frontend discovery failed after all retries');
+        log('Falling back to backend game list (installed games only)');
         const gamesResult = await call<[], GameListResult>('get_all_games');
         if (gamesResult.success && gamesResult.games) {
           appids = gamesResult.games.map(g => g.appid);
-          log(`Backend: ${appids.length} games`);
+          log(`Backend fallback: ${appids.length} installed games`);
+          log('Note: This will only sync installed games, not your full library');
         }
+      } else {
+        log(`✅ Successfully discovered ${appids.length} games from Steam frontend`);
       }
     } else {
       const gamesResult = await call<[], GameListResult>('get_all_games');

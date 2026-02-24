@@ -632,6 +632,75 @@ class Plugin:
             "total": self.sync_total
         }
 
+    async def sync_single_game_with_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Sync a single game with its complete data (progressive sync)
+
+        This is used for progressive sync where frontend sends one game at a time
+        with all its data (playtime, achievements, name) for immediate processing.
+        """
+        logger.info("=== sync_single_game_with_data called ===")
+
+        try:
+            # Extract parameters
+            appid = str(params.get('appid', ''))
+            game_data = params.get('game_data', {})
+            achievement_data = params.get('achievement_data')
+            game_name = params.get('game_name')
+
+            # Track if this is part of a larger sync operation
+            is_bulk_sync = params.get('is_bulk_sync', False)
+            current_index = params.get('current_index', 0)
+            total_count = params.get('total_count', 1)
+
+            if not appid:
+                return {"success": False, "error": "Missing appid"}
+
+            # Update sync progress if part of bulk operation
+            if is_bulk_sync:
+                self.sync_in_progress = True
+                self.sync_current = current_index
+                self.sync_total = total_count
+
+            # Extract game data
+            playtime_minutes = int(game_data.get('playtime_minutes', 0))
+            rt_last_time_played = game_data.get('rt_last_time_played')
+
+            # Extract achievement data if present
+            if achievement_data and achievement_data.get('total', 0) > 0:
+                total_achievements = achievement_data.get('total')
+                unlocked_achievements = achievement_data.get('unlocked', 0)
+                achievement_percentage = achievement_data.get('percentage', 0.0)
+            else:
+                total_achievements = None
+                unlocked_achievements = None
+                achievement_percentage = None
+
+            # Process the game
+            result = await Plugin.sync_game_with_playtime(
+                self, appid, playtime_minutes,
+                total_achievements, unlocked_achievements, achievement_percentage,
+                game_name, rt_last_time_played
+            )
+
+            # Clear sync progress if this was the last game
+            if is_bulk_sync and current_index >= total_count:
+                self.sync_in_progress = False
+                self.sync_current = 0
+                self.sync_total = 0
+
+            return {
+                "success": True,
+                "appid": appid,
+                "tag_changed": result.get('tag_changed', False),
+                "tag": result.get('tag')
+            }
+
+        except Exception as e:
+            logger.error(f"sync_single_game_with_data failed for {params.get('appid')}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": str(e)}
+
     async def get_all_games(self) -> Dict[str, Any]:
         """Get list of all games for frontend to fetch playtime"""
         logger.info("=== get_all_games called (frontend requesting game list) ===")
