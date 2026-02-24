@@ -82,8 +82,28 @@ Every commit to `main` branch automatically builds a test artifact via GitHub Ac
 2. Manually extract and copy to `~/homebrew/plugins/`
 3. Restart Decky Loader
 
+### Important File Locations on Steam Deck:
+- **Database**: `/home/deck/homebrew/data/deck-progress-tracker/game_tracker.db`
+- **Plugin files**: `/home/deck/homebrew/plugins/deck-progress-tracker/`
+- **Logs**: `/home/deck/homebrew/logs/deck-progress-tracker/` (latest log file)
+
+### Debugging Commands:
+```bash
+# SSH into Steam Deck (replace password)
+sshpass -p "YOUR_DECK_PASSWORD" ssh deck@192.168.253.187
+
+# Delete database for fresh sync
+rm /home/deck/homebrew/data/deck-progress-tracker/game_tracker.db
+
+# View latest log
+ls -t /home/deck/homebrew/logs/deck-progress-tracker/ | head -1
+tail -100 /home/deck/homebrew/logs/deck-progress-tracker/[latest-log-file]
+
+# Download log to local machine
+./dev-console-scripts/download-latest-log.sh 192.168.253.187
+```
+
 ### Logs:
-- Location: `/home/deck/homebrew/plugins/deck-progress-tracker/logs/message.txt`
 - All frontend logs go to backend via `log_frontend()` - no CEF debugging needed
 
 ## CEF Debugging
