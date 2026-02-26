@@ -124,7 +124,6 @@ class SteamDataService:
 
         for config_path in config_paths:
             if config_path.exists():
-                logger.debug(f"Found config at: {config_path}")
                 playtime = await self._extract_playtime_from_config(config_path, appid)
                 if playtime > 0:
                     return playtime
@@ -136,15 +135,10 @@ class SteamDataService:
         try:
             data = load_vdf_file(config_path)
 
-            # Log top-level keys for debugging
-            top_keys = list(data.keys())
-            logger.debug(f"Config top-level keys: {top_keys}")
-
             # Navigate through possible structures
             user_config = data.get("UserLocalConfigStore", data.get("UserRoamingConfigStore", {}))
 
             if not user_config:
-                logger.debug("No UserLocalConfigStore or UserRoamingConfigStore found")
                 return 0
 
             software = user_config.get("Software", user_config.get("software", {}))
@@ -155,12 +149,10 @@ class SteamDataService:
             apps = steam.get("apps", steam.get("Apps", {}))
 
             if not apps:
-                logger.debug(f"No apps section found. Steam keys: {list(steam.keys())[:5]}")
                 return 0
 
             if appid in apps:
                 app_data = apps[appid]
-                logger.debug(f"App {appid} data keys: {list(app_data.keys()) if isinstance(app_data, dict) else 'not a dict'}")
 
                 if isinstance(app_data, dict):
                     # Try all known playtime field names
@@ -243,7 +235,6 @@ class SteamDataService:
 
         api_key = await self.get_steam_api_key()
         if not api_key:
-            logger.debug(f"No Steam API key available for Web API fallback")
             return {"total": 0, "unlocked": 0, "percentage": 0.0}
 
         try:
@@ -255,12 +246,10 @@ class SteamDataService:
 
                 playerstats = data.get('playerstats', {})
                 if not playerstats.get('success'):
-                    logger.debug(f"Steam Web API returned success=false for appid {appid}")
                     return {"total": 0, "unlocked": 0, "percentage": 0.0}
 
                 achievements = playerstats.get('achievements', [])
                 if not achievements:
-                    logger.debug(f"No achievements in Web API response for appid {appid}")
                     return {"total": 0, "unlocked": 0, "percentage": 0.0}
 
                 total = len(achievements)
@@ -276,7 +265,6 @@ class SteamDataService:
                 }
 
         except Exception as e:
-            logger.debug(f"Steam Web API request failed for appid {appid}: {e}")
             return {"total": 0, "unlocked": 0, "percentage": 0.0}
 
     async def get_game_achievements(self, appid: str) -> Dict[str, Any]:
@@ -319,7 +307,6 @@ class SteamDataService:
                     logger.error(f"Failed to parse local achievements for {appid}: {e}")
 
         # Fallback: Try Steam Web API
-        logger.debug(f"No local achievements for {appid}, trying Steam Web API...")
         steamid64 = await self.get_steam_id64(user_id)
         if steamid64:
             return await self.get_achievements_from_web_api(appid, steamid64)
@@ -336,7 +323,6 @@ class SteamDataService:
         libraryfolders_path = self.steam_path / "steamapps" / "libraryfolders.vdf"
 
         if not libraryfolders_path.exists():
-            logger.debug("libraryfolders.vdf not found")
             return folders
 
         try:
@@ -413,18 +399,13 @@ class SteamDataService:
 
     async def get_non_steam_games(self) -> List[Dict[str, Any]]:
         """Get non-Steam games from shortcuts.vdf"""
-        logger.info("=== get_non_steam_games called ===")
         user_id = await self.get_steam_user_id()
-        logger.info(f"[get_non_steam_games] user_id={user_id}, steam_path={self.steam_path}")
         if not user_id or not self.steam_path:
-            logger.info("[get_non_steam_games] no user_id or steam_path, returning empty")
             return []
 
         shortcuts_path = self.steam_path / "userdata" / user_id / "config" / "shortcuts.vdf"
-        logger.info(f"[get_non_steam_games] shortcuts_path={shortcuts_path}, exists={shortcuts_path.exists()}")
 
         if not shortcuts_path.exists():
-            logger.info("[get_non_steam_games] shortcuts.vdf not found")
             return []
 
         games = []
@@ -432,14 +413,11 @@ class SteamDataService:
             # shortcuts.vdf is a binary VDF file, need special parsing
             with open(shortcuts_path, 'rb') as f:
                 content = f.read()
-            logger.info(f"[get_non_steam_games] read {len(content)} bytes from shortcuts.vdf")
 
             # Parse binary VDF format for shortcuts
             # This is a simplified parser that extracts appid and appname
             games = self._parse_shortcuts_binary(content)
-            logger.info(f"[get_non_steam_games] parsed {len(games)} non-Steam games")
-            if games:
-                logger.info(f"[get_non_steam_games] sample: {games[:3]}")
+            logger.info(f"Found {len(games)} non-Steam games")
 
         except Exception as e:
             logger.error(f"Failed to parse shortcuts.vdf: {e}")
@@ -500,7 +478,6 @@ class SteamDataService:
                         "playtime_minutes": 0,
                         "is_non_steam": True
                     })
-                    logger.debug(f"[_parse_shortcuts_binary] Found: {app_name} (appid={appid})")
 
                 pos = name_end + 1
 
@@ -509,5 +486,4 @@ class SteamDataService:
             import traceback
             logger.error(traceback.format_exc())
 
-        logger.info(f"[_parse_shortcuts_binary] Parsed {len(games)} games")
         return games

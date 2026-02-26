@@ -25,7 +25,7 @@ export interface SyncResult {
 /**
  * Get all owned game appids from Steam's frontend API
  * This includes both installed and uninstalled games
- * Uses window.appStore which has access to the full library
+ * Uses SteamClient.Apps.GetAllApps() which has access to the full library
  */
 export declare const getAllOwnedGameIds: () => Promise<string[]>;
 /**
@@ -81,4 +81,3 @@ export declare const syncSingleGameWithFrontendData: (appid: string) => Promise<
  * This provides immediate feedback and avoids long waits for achievement fetching
  */
 export declare const syncLibraryProgressive: (onProgress?: (current: number, total: number, gameName?: string) => void) => Promise<SyncResult>;
-export declare const syncLibraryWithFrontendData: () => Promise<SyncResult>;

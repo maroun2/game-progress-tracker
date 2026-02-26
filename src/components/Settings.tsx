@@ -1,16 +1,9 @@
 import React, { FC, useState, useEffect, useRef } from 'react';
 import { call, toaster } from '@decky/api';
 import { PanelSection, PanelSectionRow, ButtonItem, Navigation } from '@decky/ui';
-import { PluginSettings, SyncResult, TagStatistics, TaggedGame, GameListResult } from '../types';
+import { PluginSettings, TagStatistics, TaggedGame } from '../types';
 import { TagIcon, TagType } from './TagIcon';
 import { syncLibraryProgressive } from '../lib/syncUtils';
-
-const logToBackend = async (level: 'info' | 'error' | 'warn', message: string) => {
-  console.log(`[DeckProgressTracker] ${message}`);
-  try {
-    await call('log_frontend', { level, message });
-  } catch (e) {}
-};
 
 const TAG_COLORS: Record<string, string> = {
   completed: '#38ef7d',
@@ -53,7 +46,6 @@ export const Settings: FC = () => {
   const [taggedGames, setTaggedGames] = useState<TaggedGame[]>([]);
   const [backlogGames, setBacklogGames] = useState<TaggedGame[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const [loadingGames, setLoadingGames] = useState(false);
   const [loadingBacklog, setLoadingBacklog] = useState(false);
 
   const prevStatsRef = useRef<string>('');
@@ -169,7 +161,6 @@ export const Settings: FC = () => {
       setTimeout(() => setMessage(null), 10000);
     } catch (err: any) {
       setMessage(`Sync error: ${err?.message || 'Unknown'}`);
-      console.error('Sync error:', err);
     } finally {
       setSyncing(false);
       setWaitingForBackend(false);

@@ -12,16 +12,6 @@ import { TagManager } from './TagManager';
 import { useGameTag } from '../hooks/useGameTag';
 import { syncSingleGameWithFrontendData } from '../lib/syncUtils';
 
-// Debug logging helper
-const log = (msg: string, data?: any) => {
-  const logMsg = `[DeckProgressTracker][GameTagBadge] ${msg}`;
-  if (data !== undefined) {
-    console.log(logMsg, data);
-  } else {
-    console.log(logMsg);
-  }
-};
-
 /**
  * Find the TopCapsule element by walking up the DOM tree
  * Same pattern used by ProtonDB Badges
@@ -101,39 +91,26 @@ export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    log(`Mounted: appid=${appid}`);
-
     // Sync this game's data when detail page is viewed
     // This ensures we have the latest playtime and achievement data
     (async () => {
       try {
-        log(`Syncing game data for appid=${appid}...`);
         const result = await syncSingleGameWithFrontendData(appid);
         if (result.success) {
-          log(`Game ${appid} synced successfully, refreshing tag...`);
           refetch();
-        } else {
-          log(`Game ${appid} sync failed: ${result.error}`);
         }
       } catch (e) {
-        log(`Error syncing game ${appid}:`, e);
+        // Error syncing game
       }
     })();
-
-    return () => {
-      log(`Unmounted: appid=${appid}`);
-    };
   }, [appid]);
 
   // Watch for fullscreen mode changes (same pattern as ProtonDB)
   useEffect(() => {
     const topCapsule = findTopCapsuleParent(ref?.current);
     if (!topCapsule) {
-      log('TopCapsule container not found');
       return;
     }
-
-    log('TopCapsule found, setting up mutation observer');
 
     const mutationObserver = new MutationObserver((entries) => {
       for (const entry of entries) {
@@ -161,27 +138,15 @@ export const GameTagBadge: FC<GameTagBadgeProps> = ({ appid }) => {
     };
   }, []);
 
-  useEffect(() => {
-    log(`State update: appid=${appid}, loading=${loading}, tag=`, tag);
-    if (error) {
-      log(`Error: ${error}`);
-    }
-  }, [appid, tag, loading, error]);
-
   if (loading) {
-    log(`Still loading for appid=${appid}`);
     return <div ref={ref} style={{ display: 'none' }} />;
   }
 
-  log(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}, show=${show}`);
-
   const handleClick = () => {
-    log(`Tag button clicked for appid=${appid}`);
     setShowManager(true);
   };
 
   const handleClose = () => {
-    log(`TagManager closed for appid=${appid}`);
     setShowManager(false);
     refetch();
   };

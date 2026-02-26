@@ -53,7 +53,6 @@ class HLTBService:
                 result = json.loads(response.read().decode('utf-8'))
                 token = result.get('token')
                 if token:
-                    logger.debug(f"Got HLTB auth token")
                     return token
 
         except Exception as e:
@@ -86,9 +85,6 @@ class HLTBService:
         result = re.sub(r'[^\w\s]', '', result)
         # Collapse multiple spaces
         result = re.sub(r'\s+', ' ', result).strip()
-
-        if result != game_name:
-            logger.debug(f"Sanitized game name: '{game_name}' -> '{result}'")
 
         return result
 
@@ -204,22 +200,14 @@ class HLTBService:
         name_lower = game_name.lower()
         for pattern in skip_patterns:
             if pattern in name_lower:
-                logger.debug(f"Skipping non-game: {game_name}")
                 return None
 
         try:
-            logger.debug(f"Searching HLTB for: {game_name}")
-
             # Run sync request in thread pool
             result = await asyncio.to_thread(self._search_sync, game_name)
 
             if result:
-                logger.info(
-                    f"Found HLTB match: {result['matched_name']} "
-                    f"(similarity: {result['similarity']:.2f})"
-                )
-            else:
-                logger.debug(f"No HLTB results found for: {game_name}")
+                logger.info(f"HLTB: {result['matched_name']} (similarity: {result['similarity']:.2f})")
 
             return result
 
@@ -227,54 +215,3 @@ class HLTBService:
             logger.error(f"HLTB search failed for {game_name}: {e}")
             return None
 
-    async def bulk_fetch_games(
-        self,
-        game_list: List[Dict[str, str]],
-        delay: float = 1.0,
-        progress_callback=None
-    ) -> Dict[str, Dict[str, Any]]:
-        """Batch fetch multiple games with rate limiting"""
-        results = {}
-        total = len(game_list)
-
-        for i, game in enumerate(game_list):
-            appid = game.get("appid")
-            game_name = game.get("name")
-
-            if not appid or not game_name:
-                continue
-
-            result = await self.search_game(game_name)
-
-            if result:
-                results[appid] = result
-
-            # Progress callback
-            if progress_callback:
-                progress_callback(i + 1, total)
-
-            # Rate limiting delay
-            if i < total - 1:  # Don't delay after last item
-                await asyncio.sleep(delay)
-
-        logger.info(f"Bulk fetch completed: {len(results)}/{total} games found")
-        return results
-
-    async def get_completion_time(
-        self,
-        appid: str,
-        game_name: str,
-        cache_lookup_func=None
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get completion time for a game, checking cache first
-        """
-        # Check cache if function provided
-        if cache_lookup_func:
-            cached_data = await cache_lookup_func(appid)
-            if cached_data:
-                logger.debug(f"Using cached HLTB data for {appid}")
-                return cached_data
-
-        # Fetch fresh data
-        return await self.search_game(game_name)

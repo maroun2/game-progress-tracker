@@ -170,7 +170,6 @@ class Database:
 
         try:
             await asyncio.to_thread(self._set_tag_sync, self.connection, appid, tag, is_manual)
-            logger.debug(f"Set tag for {appid}: {tag} (manual={is_manual})")
             return True
         except Exception as e:
             logger.error(f"Failed to set tag for {appid}: {e}")
@@ -188,7 +187,6 @@ class Database:
 
         try:
             await asyncio.to_thread(self._remove_tag_sync, self.connection, appid)
-            logger.debug(f"Removed tag for {appid}")
             return True
         except Exception as e:
             logger.error(f"Failed to remove tag for {appid}: {e}")
@@ -256,7 +254,6 @@ class Database:
 
         try:
             await asyncio.to_thread(self._cache_hltb_sync, self.connection, appid, data)
-            logger.debug(f"Cached HLTB data for {appid}")
             return True
         except Exception as e:
             logger.error(f"Failed to cache HLTB data for {appid}: {e}")
@@ -287,7 +284,6 @@ class Database:
             cached_time = current_time
 
         if current_time - cached_time > ttl:
-            logger.debug(f"HLTB cache expired for {appid}")
             return None
 
         return {
@@ -337,7 +333,6 @@ class Database:
 
         try:
             await asyncio.to_thread(self._update_stats_sync, self.connection, appid, stats)
-            logger.debug(f"Updated stats for {appid}")
             return True
         except Exception as e:
             logger.error(f"Failed to update stats for {appid}: {e}")
@@ -436,7 +431,6 @@ class Database:
         try:
             str_value = str(value).lower() if isinstance(value, bool) else str(value)
             await asyncio.to_thread(self._set_setting_sync, self.connection, key, str_value)
-            logger.debug(f"Set setting {key} = {value}")
             return True
         except Exception as e:
             logger.error(f"Failed to set setting {key}: {e}")

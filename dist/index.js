@@ -146,193 +146,35 @@ const TagIcon = ({ type, size = 24, className }) => {
  * Sync Utilities
  * Shared functions for syncing game data using Steam's frontend API
  */
-// Debug logging helper
-const log$7 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][syncUtils] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 /**
  * Get all owned game appids from Steam's frontend API
  * This includes both installed and uninstalled games
- * Uses window.appStore which has access to the full library
+ * Uses SteamClient.Apps.GetAllApps() which has access to the full library
  */
 const getAllOwnedGameIds = async () => {
-    log$7('getAllOwnedGameIds: Discovering all owned games from Steam frontend...');
-    const appStore = window.appStore;
-    if (!appStore) {
-        log$7('❌ appStore not available - window.appStore is undefined/null');
-        log$7('This is likely because Steam frontend hasn\'t fully initialized yet');
-        return [];
-    }
-    log$7('✅ appStore is available');
-    // Log available properties for debugging
-    const appStoreKeys = Object.keys(appStore);
-    log$7(`appStore has ${appStoreKeys.length} properties`);
-    if (appStoreKeys.length > 0) {
-        log$7('appStore keys (first 20):', appStoreKeys.slice(0, 20).join(', '));
-    }
-    // Also log prototype methods
-    try {
-        const protoKeys = Object.getOwnPropertyNames(Object.getPrototypeOf(appStore));
-        log$7(`appStore prototype has ${protoKeys.length} methods`);
-        if (protoKeys.length > 0) {
-            log$7('appStore prototype methods (first 30):', protoKeys.slice(0, 30).join(', '));
-        }
-    }
-    catch (e) {
-        log$7('Could not get appStore prototype');
-    }
-    // Try multiple known patterns for Steam's internal app storage
-    // Pattern 1: m_mapApps (Map of all apps)
-    log$7('Pattern 1: Checking m_mapApps...');
-    if (appStore.m_mapApps) {
-        log$7(`m_mapApps exists, type: ${typeof appStore.m_mapApps}, isMap: ${appStore.m_mapApps instanceof Map}`);
-        if (appStore.m_mapApps instanceof Map) {
-            const appids = Array.from(appStore.m_mapApps.keys()).map((id) => String(id));
-            log$7(`✅ Found ${appids.length} games via m_mapApps Map`);
-            return appids.filter((id) => parseInt(id) > 0);
-        }
-    }
-    else {
-        log$7('m_mapApps not found');
-    }
-    // Pattern 2: allApps property
-    log$7('Pattern 2: Checking allApps...');
-    if (appStore.allApps) {
-        log$7(`allApps exists, type: ${typeof appStore.allApps}, isMap: ${appStore.allApps instanceof Map}, isArray: ${Array.isArray(appStore.allApps)}`);
-        if (appStore.allApps instanceof Map) {
-            const appids = Array.from(appStore.allApps.keys()).map((id) => String(id));
-            log$7(`✅ Found ${appids.length} games via allApps Map`);
-            return appids.filter((id) => parseInt(id) > 0);
-        }
-        if (Array.isArray(appStore.allApps)) {
-            const appids = appStore.allApps.map((app) => String(app.appid || app.app_id || app));
-            log$7(`✅ Found ${appids.length} games via allApps Array`);
-            return appids.filter((id) => parseInt(id) > 0);
-        }
-    }
-    else {
-        log$7('allApps not found');
-    }
-    // Pattern 3: m_apps object
-    log$7('Pattern 3: Checking m_apps...');
-    if (appStore.m_apps && typeof appStore.m_apps === 'object') {
-        log$7(`m_apps exists, type: ${typeof appStore.m_apps}, isMap: ${appStore.m_apps instanceof Map}`);
-        if (appStore.m_apps instanceof Map) {
-            const appids = Array.from(appStore.m_apps.keys()).map((id) => String(id));
-            log$7(`✅ Found ${appids.length} games via m_apps Map`);
-            return appids.filter((id) => parseInt(id) > 0);
-        }
-        const appids = Object.keys(appStore.m_apps);
-        log$7(`✅ Found ${appids.length} games via m_apps Object`);
-        return appids.filter((id) => parseInt(id) > 0);
-    }
-    else {
-        log$7('m_apps not found');
-    }
-    // Pattern 4: Try GetAllAppOverviews method (common Steam pattern)
-    log$7('Pattern 4: Checking GetAllAppOverviews method...');
-    if (typeof appStore.GetAllAppOverviews === 'function') {
+    // Primary method: SteamClient.Apps.GetAllApps()
+    const steamClient = window.SteamClient;
+    if (steamClient?.Apps?.GetAllApps) {
         try {
-            const overviews = appStore.GetAllAppOverviews();
-            log$7(`GetAllAppOverviews returned: ${typeof overviews}, isArray: ${Array.isArray(overviews)}`);
-            if (Array.isArray(overviews)) {
-                const appids = overviews.map((o) => String(o.appid || o.app_id || o.nAppID));
-                log$7(`✅ Found ${appids.length} games via GetAllAppOverviews`);
-                return appids.filter((id) => parseInt(id) > 0);
+            const apps = await steamClient.Apps.GetAllApps();
+            if (apps && apps.length > 0) {
+                return apps.map((a) => String(a.appid || a)).filter((id) => parseInt(id) > 0);
             }
         }
         catch (e) {
-            log$7('GetAllAppOverviews failed:', e);
+            // GetAllApps failed, fall through to appStore method
         }
     }
-    else {
-        log$7('GetAllAppOverviews method not found');
+    // Fallback: Try appStore if available
+    const appStore = window.appStore;
+    if (!appStore) {
+        return [];
     }
-    // Pattern 5: Try iterating appStore.GetAppOverviewByAppID with known appids
-    // This won't work for discovery, but let's check what methods exist
-    // Pattern 6: Try collectionStore
-    const collectionStore = window.collectionStore;
-    if (collectionStore) {
-        const collectionKeys = Object.keys(collectionStore);
-        log$7('collectionStore keys:', collectionKeys.join(', '));
-        // Try GetUserOwnedApps method
-        if (typeof collectionStore.GetUserOwnedApps === 'function') {
-            try {
-                const apps = collectionStore.GetUserOwnedApps();
-                if (apps && apps.length > 0) {
-                    log$7(`Found ${apps.length} games via GetUserOwnedApps`);
-                    return apps.map((id) => String(id)).filter((id) => parseInt(id) > 0);
-                }
-            }
-            catch (e) {
-                log$7('GetUserOwnedApps failed:', e);
-            }
-        }
-        // Try ownedAppsCollection
-        if (collectionStore.ownedAppsCollection) {
-            const apps = Array.isArray(collectionStore.ownedAppsCollection)
-                ? collectionStore.ownedAppsCollection
-                : Array.from(collectionStore.ownedAppsCollection);
-            log$7(`Found ${apps.length} games via ownedAppsCollection`);
-            return apps.map((id) => String(id)).filter((id) => parseInt(id) > 0);
-        }
-        // Try allGamesCollection
-        if (collectionStore.allGamesCollection) {
-            const apps = Array.isArray(collectionStore.allGamesCollection)
-                ? collectionStore.allGamesCollection
-                : Array.from(collectionStore.allGamesCollection);
-            log$7(`Found ${apps.length} games via allGamesCollection`);
-            return apps.map((id) => String(id)).filter((id) => parseInt(id) > 0);
-        }
-        // Try userCollections
-        if (collectionStore.userCollections) {
-            log$7('userCollections keys:', Object.keys(collectionStore.userCollections).join(', '));
-        }
-        // Try allAppsCollection
-        if (collectionStore.allAppsCollection) {
-            try {
-                const apps = Array.isArray(collectionStore.allAppsCollection)
-                    ? collectionStore.allAppsCollection
-                    : (collectionStore.allAppsCollection.apps || Array.from(collectionStore.allAppsCollection));
-                if (apps && apps.length > 0) {
-                    log$7(`Found ${apps.length} games via allAppsCollection`);
-                    return apps.map((id) => String(id.appid || id)).filter((id) => parseInt(id) > 0);
-                }
-            }
-            catch (e) {
-                log$7('allAppsCollection access failed:', e);
-            }
-        }
+    // Try m_mapApps (Map of all apps)
+    if (appStore.m_mapApps instanceof Map) {
+        const appids = Array.from(appStore.m_mapApps.keys()).map((id) => String(id));
+        return appids.filter((id) => parseInt(id) > 0);
     }
-    // Pattern 7: Try SteamClient global
-    const steamClient = window.SteamClient;
-    if (steamClient) {
-        log$7('SteamClient available, checking for apps...');
-        if (steamClient.Apps) {
-            const appsKeys = Object.keys(steamClient.Apps);
-            log$7('SteamClient.Apps keys:', appsKeys.slice(0, 20).join(', '));
-            if (typeof steamClient.Apps.GetAllApps === 'function') {
-                try {
-                    const apps = await steamClient.Apps.GetAllApps();
-                    if (apps && apps.length > 0) {
-                        log$7(`Found ${apps.length} games via SteamClient.Apps.GetAllApps`);
-                        return apps.map((a) => String(a.appid || a)).filter((id) => parseInt(id) > 0);
-                    }
-                }
-                catch (e) {
-                    log$7('SteamClient.Apps.GetAllApps failed:', e);
-                }
-            }
-        }
-    }
-    log$7('Could not discover all owned games - no matching API pattern found');
-    log$7('Please check console output for available APIs and report to developer');
     return [];
 };
 /**
@@ -340,30 +182,18 @@ const getAllOwnedGameIds = async () => {
  * Uses window.appAchievementProgressCache.m_achievementProgress.mapCache for full data
  */
 const getAchievementData = async (appids) => {
-    log$7(`getAchievementData called with ${appids.length} appids`);
     const achievementMap = {};
-    // NOTE: We do NOT set default 0/0 data - only return entries with actual data
-    // Access Steam's global achievement progress cache
     const achievementCache = window.appAchievementProgressCache;
-    log$7(`appAchievementProgressCache available: ${!!achievementCache}`);
     if (!achievementCache) {
-        log$7('appAchievementProgressCache not available - cannot get achievements!');
         return achievementMap;
     }
-    // Access the mapCache which has the full achievement data
     const mapCache = achievementCache.m_achievementProgress?.mapCache;
     if (!mapCache) {
-        log$7('mapCache not available in achievementCache');
         return achievementMap;
     }
-    log$7(`mapCache available, size: ${mapCache.size}`);
-    let successCount = 0;
-    const sampleLogs = [];
     for (const appid of appids) {
         try {
             const entry = mapCache.get(parseInt(appid));
-            // Only store if we have actual achievement data (total > 0)
-            // Don't store 0/0 which would overwrite potentially valid data
             if (entry && entry.total > 0) {
                 achievementMap[appid] = {
                     total: entry.total,
@@ -371,22 +201,11 @@ const getAchievementData = async (appids) => {
                     percentage: entry.percentage || 0,
                     all_unlocked: entry.all_unlocked || false
                 };
-                successCount++;
-                if (sampleLogs.length < 5) {
-                    sampleLogs.push(`appid ${appid}: ${entry.unlocked}/${entry.total} (${entry.percentage.toFixed(1)}%)`);
-                }
             }
-            // If no entry or total=0, don't add to map - backend will preserve existing data
         }
         catch (e) {
-            // Don't add anything on error - preserve existing data
         }
     }
-    // Log results
-    for (const logMsg of sampleLogs) {
-        log$7(`Achievement sample - ${logMsg}`);
-    }
-    log$7(`getAchievementData: found ${successCount} entries with achievements`);
     return achievementMap;
 };
 /**
@@ -394,21 +213,11 @@ const getAchievementData = async (appids) => {
  * Uses window.appStore which is Steam's internal game data cache
  */
 const getPlaytimeData = async (appids) => {
-    log$7(`getPlaytimeData called with ${appids.length} appids`);
     const gameDataMap = {};
-    // Access Steam's global appStore
     const appStore = window.appStore;
-    log$7(`appStore available: ${!!appStore}`);
     if (!appStore) {
-        log$7('appStore not available - cannot get playtime!');
         return gameDataMap;
     }
-    log$7(`GetAppOverviewByAppID exists: ${typeof appStore.GetAppOverviewByAppID}`);
-    let successCount = 0;
-    let failCount = 0;
-    let withPlaytime = 0;
-    let withLastPlayed = 0;
-    const sampleLogs = [];
     for (const appid of appids) {
         try {
             const overview = appStore.GetAppOverviewByAppID(parseInt(appid));
@@ -419,29 +228,11 @@ const getPlaytimeData = async (appids) => {
                     playtime_minutes: playtime,
                     rt_last_time_played: rtLastTimePlayed
                 };
-                successCount++;
-                if (playtime > 0)
-                    withPlaytime++;
-                if (rtLastTimePlayed)
-                    withLastPlayed++;
-                if (sampleLogs.length < 3) {
-                    const lastPlayedStr = rtLastTimePlayed ? new Date(rtLastTimePlayed * 1000).toISOString() : 'never';
-                    sampleLogs.push(`appid ${appid}: playtime=${playtime}min, lastPlayed=${lastPlayedStr}, name=${overview.display_name || 'unknown'}`);
-                }
-            }
-            else {
-                failCount++;
             }
         }
         catch (e) {
-            failCount++;
         }
     }
-    // Log results
-    for (const logMsg of sampleLogs) {
-        log$7(`Game data sample - ${logMsg}`);
-    }
-    log$7(`getPlaytimeData results: success=${successCount}, failed=${failCount}, withPlaytime=${withPlaytime}, withLastPlayed=${withLastPlayed}`);
     return gameDataMap;
 };
 /**
@@ -450,41 +241,21 @@ const getPlaytimeData = async (appids) => {
  * This works for ALL owned games, even uninstalled ones
  */
 const getGameNames = async (appids) => {
-    log$7(`getGameNames called with ${appids.length} appids`);
     const nameMap = {};
-    // Access Steam's global appStore
     const appStore = window.appStore;
     if (!appStore) {
-        log$7('appStore not available - cannot get game names!');
         return nameMap;
     }
-    let successCount = 0;
-    let failCount = 0;
-    const sampleLogs = [];
     for (const appid of appids) {
         try {
             const overview = appStore.GetAppOverviewByAppID(parseInt(appid));
             if (overview && overview.display_name) {
                 nameMap[appid] = overview.display_name;
-                successCount++;
-                if (sampleLogs.length < 5) {
-                    sampleLogs.push(`appid ${appid}: "${overview.display_name}"`);
-                }
-            }
-            else {
-                failCount++;
-                // Don't set anything - backend will use fallback
             }
         }
         catch (e) {
-            failCount++;
         }
     }
-    // Log results
-    for (const logMsg of sampleLogs) {
-        log$7(`Game name sample - ${logMsg}`);
-    }
-    log$7(`getGameNames results: success=${successCount}, failed=${failCount}`);
     return nameMap;
 };
 /**
@@ -496,25 +267,16 @@ const getGameNames = async (appids) => {
  * @returns Map of appid -> achievement data (only includes games with achievements)
  */
 const getAchievementDataWithFallback = async (appids) => {
-    log$7(`Getting achievements for ${appids.length} games (cache + API fallback)`);
-    // Step 1: Try cache first (fast path)
     const cacheData = await getAchievementData(appids);
     const achievementMap = { ...cacheData };
-    // Find appids not in cache
     const missingAppids = appids.filter(appid => !achievementMap[appid]);
     if (missingAppids.length === 0) {
-        log$7(`All ${appids.length} games found in cache`);
         return achievementMap;
     }
-    log$7(`Cache: ${Object.keys(cacheData).length}/${appids.length}, fetching ${missingAppids.length} via API`);
-    // Step 2: For missing appids, try API with 5s timeout
     const steamClient = window.SteamClient;
     if (!steamClient?.Apps?.GetMyAchievementsForApp) {
-        log$7(`API not available, returning cache data only`);
         return achievementMap;
     }
-    let apiFetched = 0;
-    let apiErrors = 0;
     for (const appid of missingAppids) {
         try {
             const promise = steamClient.Apps.GetMyAchievementsForApp(appid);
@@ -534,17 +296,12 @@ const getAchievementDataWithFallback = async (appids) => {
                         percentage,
                         all_unlocked: total > 0 && unlocked === total
                     };
-                    apiFetched++;
-                    log$7(`${appid}: ${unlocked}/${total} (${percentage.toFixed(1)}%)`);
                 }
             }
         }
         catch (e) {
-            apiErrors++;
-            // Continue to next appid
         }
     }
-    log$7(`API fetch complete: ${apiFetched} success, ${apiErrors} errors`);
     return achievementMap;
 };
 /**
@@ -554,14 +311,11 @@ const getAchievementDataWithFallback = async (appids) => {
  * which works even for uninstalled games or games not in the frontend cache.
  */
 const fetchAchievementsOnDemand = async (appid) => {
-    log$7(`Fetching achievements on-demand for ${appid}`);
-    // First check if already in cache (fastest path)
     const achievementCache = window.appAchievementProgressCache;
     const mapCache = achievementCache?.m_achievementProgress?.mapCache;
     if (mapCache) {
         const existing = mapCache.get(parseInt(appid));
         if (existing && existing.total > 0) {
-            log$7(`${appid}: found in cache (${existing.unlocked}/${existing.total})`);
             return {
                 total: existing.total,
                 unlocked: existing.unlocked || 0,
@@ -570,24 +324,20 @@ const fetchAchievementsOnDemand = async (appid) => {
             };
         }
     }
-    // Try SteamClient.Apps.GetMyAchievementsForApp with timeout
     const steamClient = window.SteamClient;
     if (steamClient?.Apps?.GetMyAchievementsForApp) {
         try {
-            // IMPORTANT: Must pass appid as STRING (not number) for API to work
             const promise = steamClient.Apps.GetMyAchievementsForApp(appid);
             if (promise && typeof promise.then === 'function') {
                 const timeoutPromise = new Promise((_, reject) => {
                     setTimeout(() => reject(new Error('Timeout')), 5000);
                 });
                 const result = await Promise.race([promise, timeoutPromise]);
-                // Check for result structure: { result: 1, data: { rgAchievements: [...] } }
                 if (result && result.result === 1 && result.data?.rgAchievements) {
                     const achievements = result.data.rgAchievements;
                     const total = achievements.length;
                     const unlocked = achievements.filter((a) => a.bAchieved).length;
                     const percentage = total > 0 ? (unlocked / total) * 100 : 0;
-                    log$7(`${appid}: fetched via API (${unlocked}/${total})`);
                     return {
                         total,
                         unlocked,
@@ -598,10 +348,8 @@ const fetchAchievementsOnDemand = async (appid) => {
             }
         }
         catch (e) {
-            log$7(`${appid}: API fetch failed - ${e?.message}`);
         }
     }
-    // Return null so backend can try Steam Web API
     return null;
 };
 /**
@@ -613,46 +361,24 @@ const fetchAchievementsOnDemand = async (appid) => {
  * @returns Sync result from backend
  */
 const syncGames = async (appids) => {
-    log$7(`Syncing ${appids.length} games`);
     try {
-        // Step 1: Get playtime and last played data
         const gameData = await getPlaytimeData(appids);
-        const withPlaytime = Object.values(gameData).filter(v => v.playtime_minutes > 0).length;
-        const withLastPlayed = Object.values(gameData).filter(v => v.rt_last_time_played !== null).length;
-        log$7(`Game data: ${withPlaytime}/${appids.length} with playtime, ${withLastPlayed}/${appids.length} with last played`);
-        // Step 2: Get achievement data (cache + API fallback)
         const achievementData = await getAchievementDataWithFallback(appids);
-        const withAchievements = Object.keys(achievementData).length;
-        log$7(`Achievements: ${withAchievements}/${appids.length} games`);
-        // Step 3: Get game names
         const gameNames = await getGameNames(appids);
-        log$7(`Names: ${Object.keys(gameNames).length}/${appids.length} games`);
-        // Step 4: Send to backend
-        log$7('Sending sync data to backend...');
-        log$7(`Payload size: gameData=${Object.keys(gameData).length}, achievements=${Object.keys(achievementData).length}, names=${Object.keys(gameNames).length}`);
         try {
             const result = await call('sync_library_with_playtime', { game_data: gameData, achievement_data: achievementData, game_names: gameNames });
-            log$7('Backend call completed');
-            log$7(`Result from backend: success=${result?.success}, total=${result?.total}, synced=${result?.synced}, errors=${result?.errors}`);
             if (result && result.success) {
-                log$7(`✅ Sync complete: ${result.synced}/${result.total} games, ${result.errors || 0} errors`);
                 return result;
             }
             else {
-                log$7(`❌ Sync failed: Backend returned success=false`);
-                log$7(`Error from backend: ${result?.error || 'No error message'}`);
                 return result || { success: false, error: 'Backend returned null or undefined' };
             }
         }
         catch (backendError) {
-            log$7(`❌ Backend call threw an error: ${backendError?.message || backendError}`);
-            log$7(`Error stack: ${backendError?.stack}`);
-            throw backendError; // Re-throw to be caught by outer try-catch
+            throw backendError;
         }
     }
     catch (e) {
-        log$7(`❌ Sync failed: ${e?.message || e}`);
-        log$7(`Error type: ${typeof e}, Error: ${JSON.stringify(e)}`);
         return { success: false, error: e?.message || 'Unknown error' };
     }
 };
@@ -662,7 +388,6 @@ const syncGames = async (appids) => {
  * Uses cache + API fallback for achievements
  */
 const syncSingleGameWithFrontendData = async (appid) => {
-    log$7(`Syncing single game: ${appid}`);
     const result = await syncGames([appid]);
     return { success: result.success, error: result.error };
 };
@@ -671,46 +396,26 @@ const syncSingleGameWithFrontendData = async (appid) => {
  * This provides immediate feedback and avoids long waits for achievement fetching
  */
 const syncLibraryProgressive = async (onProgress) => {
-    log$7('Starting progressive library sync');
     try {
-        // Get settings
         const settingsResult = await call('get_settings');
         const useAllOwned = settingsResult?.settings?.source_all_owned ?? true;
-        log$7(`Source: ${useAllOwned ? 'all owned games' : 'installed only'}`);
-        // Get game list
         let appids;
         if (useAllOwned) {
-            // Try to discover games from frontend with retries if appStore isn't ready
             appids = await getAllOwnedGameIds();
-            log$7(`Initial discovery attempt: ${appids.length} owned games found`);
-            // Retry up to 5 times with progressive delays if discovery fails (appStore not ready on initial load)
             let retries = 0;
             const maxRetries = 5;
-            const retryDelays = [2000, 3000, 4000, 5000, 6000]; // Progressive delays
+            const retryDelays = [2000, 3000, 4000, 5000, 6000];
             while (appids.length === 0 && retries < maxRetries) {
                 const delay = retryDelays[retries];
                 retries++;
-                log$7(`Discovery failed (Steam frontend may not be ready yet)`);
-                log$7(`Retry ${retries}/${maxRetries} in ${delay / 1000}s...`);
-                log$7(`Current state: window.appStore=${!!window.appStore}, window.collectionStore=${!!window.collectionStore}`);
                 await new Promise(resolve => setTimeout(resolve, delay));
-                log$7(`Attempting retry ${retries}...`);
                 appids = await getAllOwnedGameIds();
-                log$7(`Retry ${retries} result: ${appids.length} owned games discovered`);
             }
-            // Final fallback to backend if discovery still fails after retries
             if (appids.length === 0) {
-                log$7('⚠️ Frontend discovery failed after all retries');
-                log$7('Falling back to backend game list (installed games only)');
                 const gamesResult = await call('get_all_games');
                 if (gamesResult.success && gamesResult.games) {
                     appids = gamesResult.games.map(g => g.appid);
-                    log$7(`Backend fallback: ${appids.length} installed games`);
-                    log$7('Note: This will only sync installed games, not your full library');
                 }
-            }
-            else {
-                log$7(`✅ Successfully discovered ${appids.length} games from Steam frontend`);
             }
         }
         else {
@@ -719,36 +424,25 @@ const syncLibraryProgressive = async (onProgress) => {
                 return { success: false, error: gamesResult.error || 'Failed to get game list' };
             }
             appids = gamesResult.games.map(g => g.appid);
-            log$7(`Backend: ${appids.length} games`);
         }
         if (appids.length === 0) {
-            log$7('No games found');
             return { success: true, total: 0, synced: 0, errors: 0 };
         }
         const total = appids.length;
         let synced = 0;
         let errors = 0;
         let newTags = 0;
-        log$7(`Starting progressive sync of ${total} games`);
-        // Process each game one at a time
         for (let i = 0; i < appids.length; i++) {
             const appid = appids[i];
             try {
-                // Step 1: Fetch playtime for this game
                 const gameData = await getPlaytimeData([appid]);
                 const gameInfo = gameData[appid] || { playtime_minutes: 0, rt_last_time_played: null };
-                // Step 2: Fetch achievements for this game (with on-demand fallback)
                 const achievementData = await fetchAchievementsOnDemand(appid);
-                // Step 3: Fetch game name
                 const gameNames = await getGameNames([appid]);
                 const gameName = gameNames[appid] || `Game ${appid}`;
-                // Log progress
-                log$7(`[${i + 1}/${total}] Processing: ${gameName} (${appid})`);
-                // Update UI progress callback if provided
                 if (onProgress) {
                     onProgress(i + 1, total, gameName);
                 }
-                // Step 4: Send this single game to backend for processing
                 const result = await call('sync_single_game_with_data', {
                     appid,
                     game_data: gameInfo,
@@ -763,19 +457,15 @@ const syncLibraryProgressive = async (onProgress) => {
                     if (result.tag_changed) {
                         newTags++;
                     }
-                    log$7(`[${i + 1}/${total}] ✅ Synced: ${gameName}`);
                 }
                 else {
                     errors++;
-                    log$7(`[${i + 1}/${total}] ❌ Failed: ${gameName} - ${result.error}`);
                 }
             }
             catch (e) {
                 errors++;
-                log$7(`[${i + 1}/${total}] ❌ Error processing ${appid}: ${e?.message}`);
             }
         }
-        log$7(`✅ Progressive sync complete: ${synced}/${total} games, ${newTags} new tags, ${errors} errors`);
         return {
             success: true,
             total,
@@ -785,7 +475,6 @@ const syncLibraryProgressive = async (onProgress) => {
         };
     }
     catch (e) {
-        log$7(`Progressive sync failed: ${e?.message}`);
         return { success: false, error: e?.message || 'Unknown error' };
     }
 };
@@ -827,7 +516,6 @@ const Settings = () => {
     const [taggedGames, setTaggedGames] = SP_REACT.useState([]);
     const [backlogGames, setBacklogGames] = SP_REACT.useState([]);
     const [expandedSections, setExpandedSections] = SP_REACT.useState({});
-    SP_REACT.useState(false);
     const [loadingBacklog, setLoadingBacklog] = SP_REACT.useState(false);
     const prevStatsRef = SP_REACT.useRef('');
     const prevGamesRef = SP_REACT.useRef('');
@@ -931,7 +619,6 @@ const Settings = () => {
         }
         catch (err) {
             setMessage(`Sync error: ${err?.message || 'Unknown'}`);
-            console.error('Sync error:', err);
         }
         finally {
             setSyncing(false);
@@ -1014,16 +701,6 @@ const styles$1 = {
  * GameTag Component
  * Displays a colored badge with icon for game tags
  */
-// Debug logging helper
-const log$6 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][GameTag] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 const TAG_STYLES = {
     completed: {
         background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
@@ -1043,17 +720,13 @@ const TAG_STYLES = {
     }
 };
 const GameTag = ({ tag, onClick, compact = false }) => {
-    log$6(`GameTag render: tag=${tag?.tag || 'null'}, compact=${compact}, hasOnClick=${!!onClick}`);
     if (!tag || !tag.tag) {
-        log$6('GameTag: no tag, returning null');
         return null;
     }
     const style = TAG_STYLES[tag.tag];
     if (!style) {
-        log$6(`GameTag: no style for tag=${tag.tag}, returning null`);
         return null;
     }
-    log$6(`GameTag: rendering badge for tag=${tag.tag}`);
     // Compact mode: just the icon with background circle
     if (compact) {
         const compactStyle = {
@@ -1102,38 +775,24 @@ const GameTag = ({ tag, onClick, compact = false }) => {
  * TagManager Component
  * Modal for managing game tags manually
  */
-// Debug logging helper
-const log$5 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][TagManager] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 const TagManager = ({ appid, onClose }) => {
     const [details, setDetails] = SP_REACT.useState(null);
     const [loading, setLoading] = SP_REACT.useState(true);
     const [error, setError] = SP_REACT.useState(null);
-    log$5(`TagManager mounted for appid=${appid}`);
     SP_REACT.useEffect(() => {
-        log$5(`TagManager useEffect: fetching details for appid=${appid}`);
         fetchDetails();
     }, [appid]);
     const fetchDetails = async () => {
         try {
-            log$5(`fetchDetails: calling get_game_details for appid=${appid}`);
             setLoading(true);
             setError(null);
             const result = await call('get_game_details', { appid });
-            log$5(`fetchDetails: result for appid=${appid}:`, result);
             setDetails(result);
         }
         catch (err) {
             const errorMsg = err?.message || 'Failed to load game details';
             setError(errorMsg);
-            log$5(`fetchDetails: error for appid=${appid}: ${errorMsg}`, err);
+            // Error occurred
         }
         finally {
             setLoading(false);
@@ -1141,41 +800,35 @@ const TagManager = ({ appid, onClose }) => {
     };
     const setTag = async (tag) => {
         try {
-            log$5(`setTag: calling set_manual_tag for appid=${appid}, tag=${tag}`);
-            const result = await call('set_manual_tag', { appid, tag });
-            log$5(`setTag: result for appid=${appid}:`, result);
+            await call('set_manual_tag', { appid, tag });
             await fetchDetails();
         }
         catch (err) {
             const errorMsg = err?.message || 'Failed to set tag';
             setError(errorMsg);
-            log$5(`setTag: error for appid=${appid}: ${errorMsg}`, err);
+            // Error occurred
         }
     };
     const resetToAuto = async () => {
         try {
-            log$5(`resetToAuto: calling reset_to_auto_tag for appid=${appid}`);
-            const result = await call('reset_to_auto_tag', { appid });
-            log$5(`resetToAuto: result for appid=${appid}:`, result);
+            await call('reset_to_auto_tag', { appid });
             await fetchDetails();
         }
         catch (err) {
             const errorMsg = err?.message || 'Failed to reset tag';
             setError(errorMsg);
-            log$5(`resetToAuto: error for appid=${appid}: ${errorMsg}`, err);
+            // Error occurred
         }
     };
     const removeTag = async () => {
         try {
-            log$5(`removeTag: calling remove_tag for appid=${appid}`);
-            const result = await call('remove_tag', { appid });
-            log$5(`removeTag: result for appid=${appid}:`, result);
+            await call('remove_tag', { appid });
             await fetchDetails();
         }
         catch (err) {
             const errorMsg = err?.message || 'Failed to remove tag';
             setError(errorMsg);
-            log$5(`removeTag: error for appid=${appid}: ${errorMsg}`, err);
+            // Error occurred
         }
     };
     if (loading) {
@@ -1418,37 +1071,24 @@ const styles = {
 /**
  * React hook for managing game tags
  */
-// Debug logging helper
-const log$4 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][useGameTag] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 function useGameTag(appid) {
     const [tag, setTag] = SP_REACT.useState(null);
     const [loading, setLoading] = SP_REACT.useState(true);
     const [error, setError] = SP_REACT.useState(null);
     SP_REACT.useEffect(() => {
-        log$4(`useEffect triggered for appid=${appid}`);
         fetchTag();
     }, [appid]);
     const fetchTag = async () => {
         try {
-            log$4(`fetchTag: calling get_game_tag for appid=${appid}`);
             setLoading(true);
             setError(null);
             const result = await call('get_game_tag', { appid });
-            log$4(`fetchTag: result for appid=${appid}:`, result);
             setTag(result.tag);
         }
         catch (err) {
             const errorMsg = err?.message || 'Failed to fetch tag';
             setError(errorMsg);
-            log$4(`fetchTag: error for appid=${appid}: ${errorMsg}`, err);
+            // Error occurred
         }
         finally {
             setLoading(false);
@@ -1467,7 +1107,7 @@ function useGameTag(appid) {
         }
         catch (err) {
             setError(err?.message || 'Failed to set tag');
-            console.error('Error setting tag:', err);
+            // Error occurred
         }
     };
     const removeTag = async () => {
@@ -1483,7 +1123,7 @@ function useGameTag(appid) {
         }
         catch (err) {
             setError(err?.message || 'Failed to remove tag');
-            console.error('Error removing tag:', err);
+            // Error occurred
         }
     };
     const resetToAuto = async () => {
@@ -1499,7 +1139,7 @@ function useGameTag(appid) {
         }
         catch (err) {
             setError(err?.message || 'Failed to reset tag');
-            console.error('Error resetting tag:', err);
+            // Error occurred
         }
     };
     return {
@@ -1519,16 +1159,6 @@ function useGameTag(appid) {
  * Designed to be injected via safe route patching
  * Uses same positioning pattern as ProtonDB Badges
  */
-// Debug logging helper
-const log$3 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][GameTagBadge] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 /**
  * Find the TopCapsule element by walking up the DOM tree
  * Same pattern used by ProtonDB Badges
@@ -1593,37 +1223,26 @@ const GameTagBadge = ({ appid }) => {
     const [show, setShow] = SP_REACT.useState(true);
     const ref = SP_REACT.useRef(null);
     SP_REACT.useEffect(() => {
-        log$3(`Mounted: appid=${appid}`);
         // Sync this game's data when detail page is viewed
         // This ensures we have the latest playtime and achievement data
         (async () => {
             try {
-                log$3(`Syncing game data for appid=${appid}...`);
                 const result = await syncSingleGameWithFrontendData(appid);
                 if (result.success) {
-                    log$3(`Game ${appid} synced successfully, refreshing tag...`);
                     refetch();
-                }
-                else {
-                    log$3(`Game ${appid} sync failed: ${result.error}`);
                 }
             }
             catch (e) {
-                log$3(`Error syncing game ${appid}:`, e);
+                // Error syncing game
             }
         })();
-        return () => {
-            log$3(`Unmounted: appid=${appid}`);
-        };
     }, [appid]);
     // Watch for fullscreen mode changes (same pattern as ProtonDB)
     SP_REACT.useEffect(() => {
         const topCapsule = findTopCapsuleParent(ref?.current);
         if (!topCapsule) {
-            log$3('TopCapsule container not found');
             return;
         }
-        log$3('TopCapsule found, setting up mutation observer');
         const mutationObserver = new MutationObserver((entries) => {
             for (const entry of entries) {
                 if (entry.type !== 'attributes' || entry.attributeName !== 'class') {
@@ -1644,23 +1263,13 @@ const GameTagBadge = ({ appid }) => {
             mutationObserver.disconnect();
         };
     }, []);
-    SP_REACT.useEffect(() => {
-        log$3(`State update: appid=${appid}, loading=${loading}, tag=`, tag);
-        if (error) {
-            log$3(`Error: ${error}`);
-        }
-    }, [appid, tag, loading, error]);
     if (loading) {
-        log$3(`Still loading for appid=${appid}`);
         return SP_REACT.createElement("div", { ref: ref, style: { display: 'none' } });
     }
-    log$3(`Rendering: appid=${appid}, hasTag=${!!tag}, tagValue=${tag?.tag || 'none'}, show=${show}`);
     const handleClick = () => {
-        log$3(`Tag button clicked for appid=${appid}`);
         setShowManager(true);
     };
     const handleClose = () => {
-        log$3(`TagManager closed for appid=${appid}`);
         setShowManager(false);
         refetch();
     };
@@ -1681,16 +1290,6 @@ const GameTagBadge = ({ appid }) => {
  * Based on ProtonDB Badges plugin implementation
  * Uses proper Decky UI patching utilities for safety
  */
-// Debug logging helper
-const log$2 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][patchLibraryApp] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 /**
  * Extract appid from the current route/URL
  */
@@ -1709,7 +1308,7 @@ function getAppIdFromUrl() {
         return null;
     }
     catch (e) {
-        log$2('Error getting appid from URL:', e);
+        // Error occurred
         return null;
     }
 }
@@ -1718,14 +1317,11 @@ function getAppIdFromUrl() {
  * Following the ProtonDB Badges pattern for safety
  */
 function patchLibraryApp() {
-    log$2('Setting up library app patch');
     return routerHook.addPatch('/library/app/:appid', (tree) => {
-        log$2('Route patch callback triggered');
         try {
             // Find the route props with renderFunc (same pattern as ProtonDB)
             const routeProps = DFL.findInReactTree(tree, (x) => x?.renderFunc);
             if (routeProps) {
-                log$2('Found routeProps with renderFunc');
                 const patchHandler = DFL.createReactTreePatcher([
                     (tree) => DFL.findInReactTree(tree, (x) => x?.props?.children?.props?.overview)?.props?.children
                 ], (_, ret) => {
@@ -1733,30 +1329,21 @@ function patchLibraryApp() {
                     const container = DFL.findInReactTree(ret, (x) => Array.isArray(x?.props?.children) &&
                         x?.props?.className?.includes(DFL.appDetailsClasses.InnerContainer));
                     if (typeof container !== 'object') {
-                        log$2('Container not found, returning original');
                         return ret;
                     }
                     // Get appid from URL since we're inside the render
                     const appid = getAppIdFromUrl();
                     if (appid) {
-                        log$2(`Injecting GameTagBadge for appid=${appid}`);
                         // Inject our badge component at position 0 (first child, will use absolute positioning)
                         container.props.children.splice(0, 0, SP_REACT.createElement(GameTagBadge, { key: "game-progress-tag", appid: appid }));
-                    }
-                    else {
-                        log$2('Could not determine appid');
                     }
                     return ret;
                 });
                 DFL.afterPatch(routeProps, "renderFunc", patchHandler);
-                log$2('Patch handler attached to renderFunc');
-            }
-            else {
-                log$2('routeProps with renderFunc not found');
             }
         }
         catch (error) {
-            log$2('Error in route patch:', error);
+            // Error occurred
         }
         return tree;
     });
@@ -1766,22 +1353,12 @@ function patchLibraryApp() {
  * Achievement Cache Watcher
  * Monitors URL changes and syncs achievements when user views "Your Stuff" tab
  */
-const log$1 = (msg, data) => {
-    const logMsg = `[DeckProgressTracker][achievementCacheWatcher] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 let lastUrl = '';
 let syncTimeout = null;
 /**
  * Start watching for URL changes to detect when user views achievements
  */
 function startAchievementCacheWatcher() {
-    log$1('Starting achievement cache watcher');
     // Poll for URL changes every 500ms
     setInterval(() => {
         const currentUrl = window.location.href;
@@ -1791,7 +1368,6 @@ function startAchievementCacheWatcher() {
             const yourStuffMatch = currentUrl.match(/\/library\/app\/(\d+)\/tab\/YourStuff/);
             if (yourStuffMatch) {
                 const appid = yourStuffMatch[1];
-                log$1(`Detected achievements tab for ${appid}`);
                 // Clear any pending sync
                 if (syncTimeout) {
                     clearTimeout(syncTimeout);
@@ -1802,7 +1378,6 @@ function startAchievementCacheWatcher() {
                     const achievementCache = window.appAchievementProgressCache;
                     const mapCache = achievementCache?.m_achievementProgress?.mapCache;
                     if (!mapCache) {
-                        log$1(`${appid}: mapCache not available`);
                         return;
                     }
                     // Poll with exponential backoff: 500ms, 1s, 2s, 3s, 3s (total ~10s max)
@@ -1812,7 +1387,6 @@ function startAchievementCacheWatcher() {
                         await new Promise(resolve => setTimeout(resolve, delays[i]));
                         const entry = mapCache.get(parseInt(appid));
                         if (entry && entry.total > 0) {
-                            log$1(`${appid}: Achievements loaded (${entry.unlocked}/${entry.total})`);
                             foundData = true;
                             break;
                         }
@@ -1820,14 +1394,10 @@ function startAchievementCacheWatcher() {
                     if (foundData) {
                         try {
                             await syncSingleGameWithFrontendData(appid);
-                            log$1(`${appid}: Sync complete`);
                         }
                         catch (e) {
-                            log$1(`${appid}: Sync failed - ${e.message}`);
+                            // Error occurred
                         }
-                    }
-                    else {
-                        log$1(`${appid}: Achievements not loaded after 10s`);
                     }
                 }, 100); // Start polling after 100ms initial delay
             }
@@ -1838,7 +1408,6 @@ function startAchievementCacheWatcher() {
  * Stop watching for URL changes
  */
 function stopAchievementCacheWatcher() {
-    log$1('Stopping achievement cache watcher');
     if (syncTimeout) {
         clearTimeout(syncTimeout);
         syncTimeout = null;
@@ -1851,78 +1420,30 @@ function stopAchievementCacheWatcher() {
  *
  * Uses safe route patching pattern based on ProtonDB Badges plugin
  */
-// Debug logging helper
-const log = (msg, data) => {
-    const logMsg = `[DeckProgressTracker] ${msg}`;
-    if (data !== undefined) {
-        console.log(logMsg, data);
-    }
-    else {
-        console.log(logMsg);
-    }
-};
 /**
  * Main Plugin Definition
  */
 var index = definePlugin(() => {
-    log('=== Plugin initializing ===');
     // Patch the game library page using the safe ProtonDB-style approach
-    log('Setting up library app patch');
     let libraryPatch = null;
     try {
         libraryPatch = patchLibraryApp();
-        log('Library app patch registered successfully');
     }
     catch (error) {
-        log('Failed to register library app patch:', error);
+        // Failed to register library app patch
     }
     // Start achievement cache watcher (monitors when user views "Your Stuff" tab)
-    log('Starting achievement cache watcher');
     startAchievementCacheWatcher();
-    // Debug: Check Steam frontend API availability
-    log('Checking Steam frontend API availability on plugin load...');
-    log(`window.appStore exists: ${!!window.appStore}`);
-    log(`window.collectionStore exists: ${!!window.collectionStore}`);
-    log(`window.appAchievementProgressCache exists: ${!!window.appAchievementProgressCache}`);
-    log(`window.SteamClient exists: ${!!window.SteamClient}`);
-    // If appStore exists, check its properties
-    if (window.appStore) {
-        const appStore = window.appStore;
-        log('appStore properties:', Object.keys(appStore).slice(0, 20).join(', '));
-        log(`GetAppOverviewByAppID exists: ${typeof appStore.GetAppOverviewByAppID}`);
-        // Try to get a known game to test if it's actually working
-        try {
-            const testOverview = appStore.GetAppOverviewByAppID(730); // CS:GO as test
-            log(`Test GetAppOverviewByAppID(730) result: ${testOverview ? 'SUCCESS' : 'NULL'}`);
-            if (testOverview) {
-                log(`Test game name: ${testOverview.display_name}`);
-            }
-        }
-        catch (e) {
-            log(`Test GetAppOverviewByAppID failed: ${e}`);
-        }
-    }
     // Trigger sync with frontend data (replaces backend auto-sync)
     // This uses Steam's frontend API for real-time playtime and achievement data
-    log('Scheduling initial sync with frontend data...');
     // Add a delay before attempting sync to let Steam frontend initialize
     const syncDelay = 5000; // Start with 5 seconds delay
-    log(`Waiting ${syncDelay}ms before initial sync attempt...`);
     setTimeout(async () => {
-        log('Starting delayed initial sync...');
-        log(`window.appStore NOW exists: ${!!window.appStore}`);
-        log(`window.collectionStore NOW exists: ${!!window.collectionStore}`);
         try {
-            log('Calling syncLibraryProgressive...');
             // Use progressive sync with progress logging
             const result = await syncLibraryProgressive((current, total, gameName) => {
-                // Log progress every 50 games to avoid log spam
-                if (current % 50 === 0 || current === total) {
-                    log(`Initial sync progress: ${current}/${total}${gameName ? ` - ${gameName}` : ''}`);
-                }
+                // Progress callback - could be used for UI updates in future
             });
-            log('Initial sync returned:', result);
-            log(`Result details: success=${result?.success}, total=${result?.total}, synced=${result?.synced}, error=${result?.error}`);
             // Show toast notification when initial sync completes
             // Use new_tags count from backend for accurate notification
             if (result && result.success && result.synced && result.synced > 0) {
@@ -1930,7 +1451,6 @@ var index = definePlugin(() => {
                 const message = newTags > 0
                     ? `Synced ${result.synced} games. ${newTags} new tag${newTags > 1 ? 's' : ''} added!`
                     : `Synced ${result.synced} games. Open plugin to see your library.`;
-                log(`Showing success toast: ${message}`);
                 toaster.toast({
                     title: 'Deck Progress Tracker',
                     body: message,
@@ -1938,8 +1458,6 @@ var index = definePlugin(() => {
                 });
             }
             else if (!result || !result.success) {
-                log(`Sync failed or incomplete: success=${result?.success}, error=${result?.error}`);
-                log('Will retry in 10 seconds...');
                 // Show error toast
                 toaster.toast({
                     title: 'Deck Progress Tracker',
@@ -1948,17 +1466,10 @@ var index = definePlugin(() => {
                 });
                 // Retry once more after additional delay
                 setTimeout(async () => {
-                    log('=== Starting sync retry (second attempt) ===');
-                    log(`window.appStore exists (retry): ${!!window.appStore}`);
                     try {
                         const retryResult = await syncLibraryProgressive((current, total, gameName) => {
-                            // Log progress for retry
-                            if (current % 50 === 0 || current === total) {
-                                log(`Retry sync progress: ${current}/${total}${gameName ? ` - ${gameName}` : ''}`);
-                            }
+                            // Progress callback for retry
                         });
-                        log('Retry sync result:', retryResult);
-                        log(`Retry details: success=${retryResult?.success}, synced=${retryResult?.synced}`);
                         if (retryResult && retryResult.success && retryResult.synced) {
                             toaster.toast({
                                 title: 'Deck Progress Tracker',
@@ -1967,7 +1478,6 @@ var index = definePlugin(() => {
                             });
                         }
                         else {
-                            log('Retry also failed/incomplete');
                             toaster.toast({
                                 title: 'Deck Progress Tracker',
                                 body: 'Auto-sync failed. Please sync manually from settings.',
@@ -1976,17 +1486,12 @@ var index = definePlugin(() => {
                         }
                     }
                     catch (retryErr) {
-                        log('Retry sync threw error:', retryErr);
-                        log('Error message:', retryErr?.message);
-                        log('Error stack:', retryErr?.stack);
+                        // Retry sync failed
                     }
                 }, 10000);
             }
         }
         catch (err) {
-            log('Initial sync threw error:', err);
-            log('Error message:', err?.message);
-            log('Error stack:', err?.stack);
             // Show error toast
             toaster.toast({
                 title: 'Deck Progress Tracker',
@@ -2001,17 +1506,15 @@ var index = definePlugin(() => {
         content: SP_REACT.createElement(Settings, null),
         icon: SP_REACT.createElement(FaTrophy, null),
         onDismount() {
-            log('=== Plugin dismounting ===');
             // Stop achievement cache watcher
             stopAchievementCacheWatcher();
             // Clean up patches when plugin is unloaded
             if (libraryPatch) {
                 try {
                     routerHook.removePatch('/library/app/:appid', libraryPatch);
-                    log('Library app patch removed successfully');
                 }
                 catch (error) {
-                    log('Error removing library app patch:', error);
+                    // Error removing library app patch
                 }
             }
         }

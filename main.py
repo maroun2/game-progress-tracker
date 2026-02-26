@@ -217,7 +217,6 @@ class Plugin:
         # Get game statistics
         stats = await self.db.get_game_stats(appid)
         if not stats:
-            logger.debug(f"No stats found for {appid}")
             return None
 
         # Get HLTB data
@@ -272,7 +271,6 @@ class Plugin:
 
             # Skip if manual override and not forcing
             if current_tag and current_tag.get('is_manual') and not force:
-                logger.debug(f"Skipping {appid} (manual override)")
                 return current_tag
 
             # Fetch fresh game stats
@@ -407,90 +405,8 @@ class Plugin:
             logger.error(f"Error resetting tag for {appid}: {e}")
             return {"success": False, "error": str(e)}
 
-    async def sync_single_game(self, appid) -> Dict[str, Any]:
-        """Sync data and tags for single game"""
-        appid = self._extract_appid(appid)
-        try:
-            result = await Plugin.sync_game_tags(self, appid, force=False)
-            return {"success": True, "result": result}
-        except Exception as e:
-            logger.error(f"Error syncing game {appid}: {e}")
-            return {"success": False, "error": str(e)}
 
-    async def sync_library(self) -> Dict[str, Any]:
-        """Bulk sync entire library"""
-        try:
-            logger.info("=== sync_library called ===")
 
-            # Get all games from Steam
-            logger.info("Fetching games from Steam...")
-            games = await self.steam_service.get_all_games()
-            total = len(games)
-            logger.info(f"Found {total} games in Steam library")
-
-            if total == 0:
-                return {
-                    "success": True,
-                    "message": "No games found in library",
-                    "total": 0,
-                    "synced": 0,
-                    "errors": 0
-                }
-
-            synced = 0
-            errors = 0
-            error_list = []
-
-            for i, game in enumerate(games):
-                appid = game['appid']
-                game_name = game.get('name', f'Game {appid}')
-
-                # Log progress for each game
-                logger.info(f"[{i+1}/{total}] Syncing: {game_name} ({appid})")
-
-                try:
-                    await Plugin.sync_game_tags(self, appid)
-                    synced += 1
-                    logger.info(f"[{i+1}/{total}] Completed: {game_name}")
-
-                    # Add delay for HLTB rate limiting
-                    if i < total - 1:
-                        await asyncio.sleep(1.0)
-
-                except Exception as e:
-                    errors += 1
-                    error_list.append({"appid": appid, "error": str(e)})
-                    logger.error(f"[{i+1}/{total}] Failed: {game_name} - {e}")
-
-            logger.info(f"Library sync completed: {synced}/{total} synced, {errors} errors")
-
-            return {
-                "success": True,
-                "total": total,
-                "synced": synced,
-                "errors": errors,
-                "error_details": error_list[:10]  # Limit to first 10 errors
-            }
-
-        except Exception as e:
-            logger.error(f"Library sync failed: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return {"success": False, "error": str(e)}
-
-    async def refresh_hltb_cache(self) -> Dict[str, Any]:
-        """Clear and rebuild HLTB cache"""
-        try:
-            # This would require deleting all HLTB cache and resyncing
-            # For now, just return success
-            logger.info("HLTB cache refresh requested")
-            return {
-                "success": True,
-                "message": "Cache will be refreshed on next sync"
-            }
-        except Exception as e:
-            logger.error(f"Failed to refresh HLTB cache: {e}")
-            return {"success": False, "error": str(e)}
 
     async def get_game_details(self, appid) -> Dict[str, Any]:
         """Get all details for a game"""
@@ -737,18 +653,15 @@ class Plugin:
     async def sync_library_with_playtime(self, playtime_data_or_params: Dict[str, Any], achievement_data: Dict[str, Dict[str, int]] = None) -> Dict[str, Any]:
         """Sync library using playtime and achievement data provided by frontend"""
         logger.info("=== sync_library_with_playtime called ===")
-        logger.info(f"Received first arg type: {type(playtime_data_or_params)}")
 
         # Handle Decky API passing all params as single dict
         # Frontend calls: call('sync_library_with_playtime', { game_data, achievement_data })
         # Decky passes entire object as first argument
         if isinstance(playtime_data_or_params, dict) and 'game_data' in playtime_data_or_params:
-            logger.info("Extracting nested params from first argument (new format with game_data)")
             game_data = playtime_data_or_params.get('game_data', {})
             achievement_data = playtime_data_or_params.get('achievement_data', {})
             game_names = playtime_data_or_params.get('game_names', {})
         elif isinstance(playtime_data_or_params, dict) and 'playtime_data' in playtime_data_or_params:
-            logger.info("Extracting nested params from first argument (old format with playtime_data)")
             # Backwards compatibility: convert old playtime_data format to game_data format
             playtime_data = playtime_data_or_params.get('playtime_data', {})
             game_data = {appid: {"playtime_minutes": mins, "rt_last_time_played": None}
@@ -763,39 +676,6 @@ class Plugin:
             if achievement_data is None:
                 achievement_data = {}
             game_names = {}
-
-        logger.info(f"Game data type: {type(game_data)}, keys: {len(game_data) if isinstance(game_data, dict) else 'N/A'}")
-        logger.info(f"Achievement data type: {type(achievement_data)}, keys: {len(achievement_data) if isinstance(achievement_data, dict) else 'N/A'}")
-
-        # Handle case where game_data might be nested or wrong type
-        if isinstance(game_data, dict):
-            logger.info(f"Received game_data keys count: {len(game_data)}")
-            sample = list(game_data.items())[:5]
-            logger.info(f"Sample game data (first 5): {sample}")
-            # Safely count non-zero playtime and last_played values
-            try:
-                non_zero_playtime = sum(1 for v in game_data.values() if isinstance(v, dict) and v.get('playtime_minutes', 0) > 0)
-                with_last_played = sum(1 for v in game_data.values() if isinstance(v, dict) and v.get('rt_last_time_played'))
-                logger.info(f"Games with playtime > 0: {non_zero_playtime}/{len(game_data)}, with last_played: {with_last_played}/{len(game_data)}")
-            except Exception as e:
-                logger.error(f"Error counting game data stats: {e}")
-        else:
-            logger.error(f"game_data is not a dict! Type: {type(game_data)}")
-
-        # Log achievement data stats
-        if isinstance(achievement_data, dict):
-            logger.info(f"Received achievement_data keys count: {len(achievement_data)}")
-            try:
-                with_achievements = sum(1 for v in achievement_data.values() if isinstance(v, dict) and v.get('total', 0) > 0)
-                logger.info(f"Games with achievements > 0: {with_achievements}/{len(achievement_data)}")
-            except Exception as e:
-                logger.error(f"Error counting achievements: {e}")
-
-        # Log game names stats
-        if isinstance(game_names, dict):
-            logger.info(f"Received game_names keys count: {len(game_names)}")
-            sample_names = list(game_names.items())[:5]
-            logger.info(f"Sample game names (first 5): {sample_names}")
 
         try:
             logger.info(f"=== Starting sync with {len(game_data)} game entries ===")
@@ -919,10 +799,9 @@ class Plugin:
                 data = json_lib.loads(response.read().decode())
                 if data.get(str(appid), {}).get('success'):
                     name = data[str(appid)]['data'].get('name')
-                    logger.debug(f"Got name from Steam Store API for {appid}: {name}")
                     return name
         except Exception as e:
-            logger.debug(f"Steam Store API error for {appid}: {e}")
+            pass
 
         return None
 
@@ -932,7 +811,6 @@ class Plugin:
         NOTE: Achievement params can be None if frontend doesn't have data.
         In that case, we preserve existing achievement data in DB.
         """
-        logger.debug(f"sync_game_with_playtime: appid={appid}, playtime_minutes={playtime_minutes}, achievements={unlocked_achievements}/{total_achievements}, rt_last_time_played={rt_last_time_played}")
 
         # Get current tag
         current_tag = await self.db.get_tag(appid)

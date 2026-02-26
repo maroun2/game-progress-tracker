@@ -15,16 +15,6 @@ import { routerHook } from '@decky/api';
 import React, { ReactElement } from 'react';
 import { GameTagBadge } from '../components/GameTagBadge';
 
-// Debug logging helper
-const log = (msg: string, data?: any) => {
-  const logMsg = `[DeckProgressTracker][patchLibraryApp] ${msg}`;
-  if (data !== undefined) {
-    console.log(logMsg, data);
-  } else {
-    console.log(logMsg);
-  }
-};
-
 /**
  * Extract appid from the current route/URL
  */
@@ -44,7 +34,7 @@ function getAppIdFromUrl(): string | null {
 
     return null;
   } catch (e) {
-    log('Error getting appid from URL:', e);
+    // Error occurred
     return null;
   }
 }
@@ -54,20 +44,14 @@ function getAppIdFromUrl(): string | null {
  * Following the ProtonDB Badges pattern for safety
  */
 function patchLibraryApp() {
-  log('Setting up library app patch');
-
   return routerHook.addPatch(
     '/library/app/:appid',
     (tree: any) => {
-      log('Route patch callback triggered');
-
       try {
         // Find the route props with renderFunc (same pattern as ProtonDB)
         const routeProps = findInReactTree(tree, (x: any) => x?.renderFunc);
 
         if (routeProps) {
-          log('Found routeProps with renderFunc');
-
           const patchHandler = createReactTreePatcher(
             [
               (tree: any) => findInReactTree(
@@ -85,7 +69,6 @@ function patchLibraryApp() {
               );
 
               if (typeof container !== 'object') {
-                log('Container not found, returning original');
                 return ret;
               }
 
@@ -93,16 +76,12 @@ function patchLibraryApp() {
               const appid = getAppIdFromUrl();
 
               if (appid) {
-                log(`Injecting GameTagBadge for appid=${appid}`);
-
                 // Inject our badge component at position 0 (first child, will use absolute positioning)
                 container.props.children.splice(
                   0,
                   0,
                   <GameTagBadge key="game-progress-tag" appid={appid} />
                 );
-              } else {
-                log('Could not determine appid');
               }
 
               return ret;
@@ -110,12 +89,9 @@ function patchLibraryApp() {
           );
 
           afterPatch(routeProps, "renderFunc", patchHandler);
-          log('Patch handler attached to renderFunc');
-        } else {
-          log('routeProps with renderFunc not found');
         }
       } catch (error) {
-        log('Error in route patch:', error);
+        // Error occurred
       }
 
       return tree;

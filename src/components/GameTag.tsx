@@ -7,16 +7,6 @@ import React, { VFC, CSSProperties } from 'react';
 import { GameTag as GameTagType } from '../types';
 import { TagIcon, TAG_ICON_COLORS } from './TagIcon';
 
-// Debug logging helper
-const log = (msg: string, data?: any) => {
-  const logMsg = `[DeckProgressTracker][GameTag] ${msg}`;
-  if (data !== undefined) {
-    console.log(logMsg, data);
-  } else {
-    console.log(logMsg);
-  }
-};
-
 interface GameTagProps {
   tag: GameTagType | null;
   onClick?: () => void;
@@ -48,21 +38,15 @@ const TAG_STYLES: Record<string, TagStyle> = {
 };
 
 export const GameTag: VFC<GameTagProps> = ({ tag, onClick, compact = false }) => {
-  log(`GameTag render: tag=${tag?.tag || 'null'}, compact=${compact}, hasOnClick=${!!onClick}`);
-
   if (!tag || !tag.tag) {
-    log('GameTag: no tag, returning null');
     return null;
   }
 
   const style = TAG_STYLES[tag.tag];
 
   if (!style) {
-    log(`GameTag: no style for tag=${tag.tag}, returning null`);
     return null;
   }
-
-  log(`GameTag: rendering badge for tag=${tag.tag}`);
 
   // Compact mode: just the icon with background circle
   if (compact) {
